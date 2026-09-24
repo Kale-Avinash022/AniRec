@@ -1,0 +1,1 @@
+"""AniRec FastAPI application module."""

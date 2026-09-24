@@ -1,0 +1,1 @@
+"""AniRec Streamlit UI module."""

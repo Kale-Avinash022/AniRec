@@ -1,0 +1,332 @@
+AniRec — Full Project Overview
+
+One-line pitch: A conversational anime recommendation engine that retrieves semantically similar shows from a vector database and explains its reasoning with citations — built with Python, AniList data, and LLM + RAG, fully deployed with evals.
+
+---
+
+What the Project Demonstrates (read this first — it shapes every decision)
+
+Every component exists to signal a hireable skill. When a recruiter/interviewer scans your repo, this is what they should find
+
+| Component | Skill it proves |
+| --- | --- |
+| AniList ingestion pipeline | API integration, data engineering, pagination/rate-limit handling |
+| Document design + chunking | The #1 RAG design decision — most candidates never justify theirs |
+| Embeddings + vector store | Core AI engineering literacy |
+| Hybrid retrieval (semantic + metadata filters) | You know retrieval isn't just "call similarity()" |
+| Reranking + diversity (MMR) | Production-grade retrieval thinking |
+| Prompt design with citations + anti-hallucination guardrails | Prompt engineering beyond "write a good prompt" |
+| Golden-set evals + LLM-as-judge | The single biggest differentiator for entry-level candidates |
+| FastAPI + streaming | Backend engineering |
+| Docker + cloud deploy | You can ship, not just prototype |
+| Metrics + writeup | Senior-level communication |
+
+---
+
+2.System Architecture
+
+┌────────────┐   ┌──────────────┐   ┌─────────────┐   ┌──────────────┐
+│  AniList   │──▶│  Ingestion   │──▶│  Raw JSON   │──▶│  Document    │
+│  GraphQL   │   │  (rate-      │   │  snapshots  │   │  builder     │
+│  API       │   │  limited)    │   │  on disk    │   │  (chunking)  │
+└────────────┘   └──────────────┘   └─────────────┘   └──────┬───────┘
+                                                             ▼
+┌────────────┐   ┌──────────────┐   ┌─────────────┐   ┌──────────────┐
+│  Streamlit │◀─▶│   FastAPI    │◀─▶│  Retrieval  │◀──│  Chroma /    │
+│  UI (chat) │   │  (SSE stream)│   │  pipeline   │   │  pgvector    │
+└────────────┘   └──────┬───────┘   └──────┬──────┘   └──────────────┘
+                        ▼                ▼
+                 ┌────────────┐   ┌─────────────┐
+                 │  LLM       │   │  Reranker   │
+                 │ (OpenAI /  │   │ (cross-     │
+                 │  Ollama)   │   │  encoder)   │
+                 └────────────┘   └─────────────┘
+
+Sidecar: evals harness (golden set + judge), logging/tracing (JSONL/SQLite),
+feedback store (thumbs up/down).
+
+Request flow (one recommendation):
+1.User: "I want FMAB's politics but darker, 2015 or later"
+2.Query understanding → extract structured constraints (year_min: 2015), keep the mood description as semantic text
+3.Filtered vector search → embed the mood description, search Chroma/pgvector with metadata filters
+4.Rerank → cross-encoder rescores top 20 → top 5 (with franchise dedup)
+5.Diversity pass → MMR so you don't get 3 shows from the same franchise
+6.Generation → LLM writes the answer using only the retrieved shows, citing title + year + the attributes that matched
+7.Post-check → verify every recommended title exists in the retrieved set (anti-hallucination)
+8.Log → query, filters, retrieved IDs + scores, latency per stage, tokens, cost
+
+---
+
+3.Data Layer
+
+3.1 Source: AniList GraphQL API
+Endpoint: https://graphql.anilist.co — no API key needed, free
+Pull top ~3,000 TV anime by POPULARITY_DESC (adjustable; exclude isAdult unless you want a content toggle as a feature)
+Rate limits (~90 req/min) → one request/sec with a polite delay, and persist every page to disk so re-runs never re-hit the API
+
+3.2 GraphQL query (your ingestion core)
+
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo { hasNextPage }
+    media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+      id
+      title { romaji english native }
+      description
+      genres
+      tags { name rank }
+      averageScore
+      popularity
+      seasonYear
+      season
+      format
+      episodes
+      status
+      studios(isMain: true) { nodes { name } }
+      coverImage { large }
+      siteUrl
+      relations {
+        edges { relationType node { id title { romaji } } }
+      }
+    }
+  }
+}
+
+The relations field matters — it's your franchise-dedup data (PREQUEL / SEQUEL / SIDE_STORY / ALTERNATIVE).
+
+3.3 Document design (the part to over-think — then justify in your writeup)
+
+One document per show, with the embedding text assembled from curated fields, and everything else as metadata for filtering
+
+{
+  "id": "anilist_16498",
+  "text": "Attack on Titan (Shingeki no Kyojin), 2013, TV, 25 episodes.\nGenres: Action, Drama, Fantasy.\nTags: survival (90), military (86), gore (80), dark fantasy (78), shounen (75).\nStudio: Wit Studio.\nDescription: \nAverage score: 84. Popularity: 600k.",
+  "metadata": {
+    "anilist_id": 16498,
+    "title_romaji": "Shingeki no Kyojin",
+    "title_english": "Attack on Titan",
+    "year": 2013,
+    "genres": ["Action", "Drama", "Fantasy"],
+    "format": "TV",
+    "average_score": 84,
+    "popularity": 600000,
+    "franchise_root_id": 16498,
+    "top_tags": ["survival", "military", "gore"]
+  }
+}
+
+Why one-doc-per-show and not smaller chunks? A recommendation is a whole-show judgment — chunking synopses into paragraphs destroys the score/tags/year context and mixes shows. This is exactly the kind of decision your README should defend. (Note: this means your "chunking strategy" section is really a document-assembly strategy — still a legitimate and interesting design discussion.)
+
+Why tags with rank? AniList tag rank (0–100) is community weight — folding top-ranked tags into the text gives the embedding model real signal instead of a flat tag list.
+
+---
+
+4.Embeddings & Vector Store
+
+| Decision | Default choice | Alternative | Why |
+| --- | --- | --- | --- |
+| Embedding model | sentence-transformers/all-MiniLM-L6-v2 (local, free) | OpenAI text-embedding-3-small | Zero cost, no key management for a student; swap later |
+| Vector store | Chroma (persistent, local) | pgvector (Postgres) | Chroma = fastest path in week 1. Migrating to pgvector later is a feature — it shows SQL + metadata-filter skills. Decide based on how much backend you want to demo |
+| LLM | OpenAI gpt-4o-mini (cheap, ~$1 total for dev) | Ollama llama3.1:8b (free, local) | Pick based on your machine + budget; abstract behind an interface so either works |
+
+Abstract both the embedder and LLM behind small classes (Embedder, ChatModel) — swapping providers without touching business logic is itself a talking point.
+
+---
+
+5.Retrieval Pipeline (where you beat the tutorial clones)
+
+1.Query understanding — parse the natural-language request into {semantic_text, filters}. Start simple (regex/rules for "2015+", "TV only", genre names), then optionally upgrade to LLM structured extraction (Pydantic Filters model). Document both versions — "started rules-based, moved to structured extraction when X" is a great interview story.
+2.Filtered vector search — embed semantic_text, query the store with where clauses on year/genre/format/score.
+3.Graceful filter relaxation — if filtered search returns .json, and compares against the previous run. You will show a table in your README like
+4.Cross-encoder rerank — retrieve top 20, rescore with cross-encoder/ms-marco-MiniLM-L-6-v2 locally, keep top 5.
+5.Franchise dedup — using AniList relations: if "FMAB" is retrieved and "FMA (2003)" is #2, collapse or annotate them (users searching FMAB-similar already watched FMA).
+6.MMR diversity — ensure the final 5 aren't 5 isekai power-fantasies with identical tags.
+
+6. Generation Layer
+System prompt contract (the essentials):
+
+You will receive a user request and a JSON list of candidate shows with attributes. Recommend only from this list.
+For each pick: title, year, and a 2–3 sentence reason tied to specific retrieved attributes (tags, genres, themes) — not generic praise.
+Do not invent shows, studios, scores, or years. If the list doesn't fit the request, say so and relax the ask.
+Spoiler policy: reference only synopsis-level content. (This is why v1 uses descriptions + tags, not reviews.)
+Output strict JSON: [{title, year, why, matched_on: [...]}] → parse and render; JSON mode on the API.
+Anti-hallucination post-check: after generation, assert every recommended title exists in the retrieved set; if not, retry once with a stricter prompt, else fail visibly. Log violations — your faithfulness metric uses these logs.
+
+7. API Layer (FastAPI)
+
+| Endpoint | Purpose |
+| --- | --- |
+| POST /recommend | Body: {query, filters?, exclude_ids?}. Returns structured recommendations + retrieved provenance. One-shot, no memory |
+| POST /chat | Multi-turn, SSE streaming. Keeps conversation history; each turn still runs the full retrieval pipeline |
+| GET /anime/{id} | Show detail card (for UI popovers) |
+| GET /health | Liveness for deployment checks |
+
+Pydantic request/response schemas everywhere — validation at the boundary
+CORS configured for the Streamlit origin
+Per-request ID injected into logs; latency timed per pipeline stage
+
+
+8. UI (Streamlit)
+Chat interface with streaming responses (consume the SSE endpoint)
+Sidebar filters: genre multi-select, year range slider, min score, format checkboxes, "exclude shows I've watched" (paste AniList username → fetch their list via the API — killer demo feature, stretch goal)
+"Why this recommendation?" expander under each answer: the retrieved shows, their similarity scores, and which attributes matched — this makes your retrieval logic visible, which is the whole point of the project
+Thumbs up/down per response → append to a feedback JSONL/SQLite table (feeds the stretch goal)
+
+
+9. Evaluation System (your biggest differentiator)
+9.1 Golden dataset — you author it
+~50 question/expected-answer pairs, written from your 150+ shows watched. Cover the query space deliberately
+
+| Category | Example | Count |
+| --- | --- | --- |
+| Mood/semantic | "FMAB's politics but darker" | ~20 |
+| Constraint-heavy | "2018+, romance, score ≥ 75, TV only" | ~10 |
+| Hybrid | "something like Death Note — thriller, but completed and short" | ~10 |
+| Negative/adversarial | "a bad show similar to X" (should refuse gracefully) | ~5 |
+| Franchise edge cases | "like AoT but not the sequels/spinoffs" | ~5 |
+
+9.2 Metrics
+Retrieval:
+
+Hit Rate @5 — is at least one of your expected shows in the top 5? (target: ≥ 0.70)
+MRR — how high does the best expected show rank?
+
+Generation:
+
+Faithfulness (LLM-as-judge) — judge prompt: "Given context C and answer A, is every claim in A supported by C? Rate 1–5" → pass threshold 4
+Constraint satisfaction — did the output respect year/score/format filters? (programmatic check, not judge)
+
+9.3 Harness
+run_evals.py executes the full pipeline over the golden set, writes results to evals/results/<timestamp>.json, and compares against the previous run. You will show a table in your README like
+| Change                          | Hit@5 | Faithfulness | p95 latency |
+|---------------------------------|-------|--------------|-------------|
+| baseline (no rerank)            | 0.58  | 0.81         | 4.2s        |
+| + cross-encoder rerank          | 0.71  | 0.84         | 4.6s        |
+| + franchise dedup               | 0.73  | 0.86         | 4.7s        |
+baseline (no rerank)  0.58  0.81  4.2s
++ cross-encoder rerank  0.71  0.84  4.6s
++ franchise dedup  0.73  0.86  4.7s
+
+That table is the portfolio. Anyone can clone a LangChain template; almost nobody can show measured iteration.
+
+---
+
+10. Observability, Cost, Logging
+
+JSONL request logs: {request_id, query, parsed_filters, retrieved_ids+scores, model, tokens_in/out, latency_per_stage, final_titles}
+Cost tracking: token counts × price table → cost_per_request; print daily totals during dev (keeps you honest)
+Faithfulness violations logged separately for failure-case analysis
+Stretch: self-hosted Langfuse, or the LangSmith free tier — one screenshot of a trace in the README looks great
+
+---
+
+11. Deployment
+
+Dockerfile (multi-stage: deps → runtime), .dockerignore, docker-compose.yml (app + optional Postgres/pgvector)
+Secrets via .env (.env.example committed with placeholders)
+Platform options (pick one): Hugging Face Spaces (easiest for Streamlit, free), Render (free web service tier), Fly.io (generous free allowances)
+Stretch: GitHub Action cron → weekly re-ingestion of new seasons (shows CI/CD + data freshness thinking)
+
+---
+
+12. Repository Structure
+
+anirec/
+├── README.md                  ← architecture, eval table, failure cases, demo GIF
+├── pyproject.toml / requirements.txt
+├── .env.example
+├── Dockerfile
+├── docker-compose.yml
+├── data/
+│   ├── raw/                   ← AniList JSON snapshots (gitignored)
+│   └── processed/
+├── src/
+│   ├── core/        (config.py, logging.py, models.py)
+│   ├── ingest/      (anilist_client.py, transform.py, build_index.py)
+│   ├── retrieval/   (vectorstore.py, filters.py, reranker.py, diversity.py)
+│   ├── generation/  (prompts.py, recommender.py, guardrails.py)
+│   ├── api/         (main.py, schemas.py)
+│   ├── ui/          (streamlit_app.py)
+│   └── evals/       (golden_set.json, run_evals.py, judge.py, metrics.py)
+├── tests/           (unit tests for filters, document builder, guardrails)
+└── evals/results/   ← timestamped eval runs
+
+---
+
+13.Known Failure Modes (your writeup gold — expect these)
+
+| Failure | Cause | Your fix |
+| --- | --- | --- |
+| Sequel contamination | "like AoT" retrieves AoT S2/S3/OVAs | Franchise grouping via relations; dedup or annotate |
+| Hallucinated titles | LLM invents plausible-sounding shows | Strict JSON mode + post-check against retrieved set |
+| Empty results on tight filters | 2020+ + niche genre + score ≥ 80 | Progressive filter relaxation, disclosed to user |
+| Popularity bias | Embeddings overweight famous shows | MMR + optional score-normalized reranking |
+| Spoiler leakage | Reviews contain late-plot reveals | v1 excludes reviews entirely — state this as a deliberate scope decision |
+| Stale catalog | New season not in index | Weekly re-ingestion job (stretch) |
+
+Finding these via your evals and fixing them is the story of your blog post.
+
+---
+
+14. Week-by-Week Execution Plan
+
+Week 1 — Data & Index
+AniList client with pagination + rate limiting → raw JSON on disk
+Document builder + embedding loader → Chroma index of ~3k shows
+Done when: you can run a script query and see sensible neighbors for "dark political fantasy"
+
+Week 2 — Retrieval & Generation
+Filter parsing (rules-based), filtered vector search
+LLM recommender with strict-JSON prompt + citations + post-check
+Reranker + franchise dedup
+Done when: CLI command returns 5 cited, non-hallucinated recommendations for a mood query
+
+Week 3 — API & UI
+FastAPI /recommend + /chat with SSE streaming
+Streamlit chat UI + sidebar filters + "why recommended" panel
+Done when: a friend can use it in a browser
+
+Week 4 — Evals & Hardening
+Write the ~50 golden Q&A pairs (your domain-expert set)
+run_evals.py + judge + metrics table; iterate retrieval until Hit@5 ≥ 0.70
+Failure-mode fixes from §13
+Done when: the results table shows measured improvement over your baseline
+
+Week 5 — Deploy & Write
+Docker + deploy to free tier, public URL
+README (architecture diagram, eval table, 2–3 failure case studies) + short blog post
+Done when: link is on your resume
+
+---
+
+15. Success Targets (put these in the README)
+
+Hit Rate @5 ≥ 0.70 on golden set
+Faithfulness ≥ 0.85
+p95 end-to-end latency < 6 s (with streaming, perceived latency < 1.5 s to first token)
+Zero hallucinated titles in eval runs
+Cost per request < $0.005 (OpenAI path) or $0 (local path)
+
+---
+
+16. Resume & Blog Framing
+
+Resume bullets:
+Built and deployed AniRec, a RAG-based anime recommendation engine over a 3,000-title catalog (FastAPI, Chroma, OpenAI, Docker)
+Authored a 50-pair golden evaluation set; improved retrieval Hit@5 from 0.58 → 0.73 through cross-encoder reranking and franchise dedup
+Designed hybrid retrieval combining semantic search with metadata filters, with progressive relaxation and constraint-satisfaction scoring
+
+Blog post outline: the pitch → why one-doc-per-show → the eval table → 2 failure case studies (sequel contamination, hallucination) → what you'd do next. ~800 words. This post does more for your job search than the code does.
+
+---
+
+17. Stretch Goals (only after v1 ships)
+
+AniList username import → auto-exclude watched shows (huge demo wow-factor)
+Feedback loop: thumbs up/down stored, used for a per-user re-ranking feature
+pgvector migration (shows Postgres chops)
+Langfuse tracing dashboard
+Structured LLM extraction for filters (replacing rules)
+
+---
+
