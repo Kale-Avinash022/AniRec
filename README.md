@@ -2,6 +2,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-42%20passed-brightgreen.svg)](tests/)
 [![Architecture: RAG](https://img.shields.io/badge/architecture-RAG-orange.svg)](MASTER_ROADMAP_AND_INDEX.md)
 
@@ -108,4 +109,5 @@ anirec/
 ---
 
 ## 🛡️ License & Acknowledgments
-- Data provided publicly by [AniList API](https://anilist.gitbook.io/anilist-apiv2-docs/).
+- Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
+- Anime metadata provided publicly by the [AniList GraphQL API](https://anilist.gitbook.io/anilist-apiv2-docs/).
