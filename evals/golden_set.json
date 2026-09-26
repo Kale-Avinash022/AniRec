@@ -1,0 +1,1051 @@
+[
+  {
+    "id": "eval_01",
+    "category": "mood_semantic",
+    "query": "I want FMAB's politics and worldbuilding but darker and more morally grey",
+    "expected_anilist_ids": [
+      101348,
+      1575,
+      13125
+    ],
+    "expected_titles": [
+      "Vinland Saga",
+      "Code Geass: Lelouch of the Rebellion",
+      "From the New World"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Demands deep political maneuvering, moral ambiguity, and immersive dark worldbuilding."
+  },
+  {
+    "id": "eval_02",
+    "category": "mood_semantic",
+    "query": "psychological cyberpunk thriller with philosophical themes about consciousness and society",
+    "expected_anilist_ids": [
+      13601,
+      120377,
+      43
+    ],
+    "expected_titles": [
+      "Psycho-Pass",
+      "Cyberpunk: Edgerunners",
+      "Ghost in the Shell"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Classic cyberpunk themes questioning identity, crime, and dystopian societal control."
+  },
+  {
+    "id": "eval_03",
+    "category": "mood_semantic",
+    "query": "cozy relaxing slice of life with camping, calming music and peaceful countryside vibes",
+    "expected_anilist_ids": [
+      98444,
+      17549,
+      21284
+    ],
+    "expected_titles": [
+      "Laid-Back Camp",
+      "Non Non Biyori",
+      "Flying Witch"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Iyashikei (healing) atmosphere focusing on serenity, outdoor leisure, and quiet landscapes."
+  },
+  {
+    "id": "eval_04",
+    "category": "mood_semantic",
+    "query": "dark fantasy with deep underworld exploration, body horror, despair, and mysterious ancient lore",
+    "expected_anilist_ids": [
+      97986,
+      101759,
+      1482
+    ],
+    "expected_titles": [
+      "Made in Abyss",
+      "The Promised Neverland",
+      "D.Gray-man"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Lush adventurous surface giving way to grotesque psychological and physical peril."
+  },
+  {
+    "id": "eval_05",
+    "category": "mood_semantic",
+    "query": "time loop psychological mystery where the protagonist suffers repeatedly to save their loved ones",
+    "expected_anilist_ids": [
+      9253,
+      21355,
+      21234,
+      129201
+    ],
+    "expected_titles": [
+      "Steins;Gate",
+      "Re:ZERO -Starting Life in Another World-",
+      "ERASED",
+      "Summer Time Rendering"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Repeated temporal loops, emotional trauma, and desperate puzzle-solving."
+  },
+  {
+    "id": "eval_06",
+    "category": "mood_semantic",
+    "query": "melancholic coming of age drama exploring grief, depression, and classical instruments",
+    "expected_anilist_ids": [
+      20665,
+      21366,
+      20912
+    ],
+    "expected_titles": [
+      "Your Lie in April",
+      "March comes in like a lion",
+      "Sound! Euphonium"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Emotional resonance built through musical artistry and recovery from trauma."
+  },
+  {
+    "id": "eval_07",
+    "category": "mood_semantic",
+    "query": "high-stakes strategic battles of wits with geniuses outsmarting each other and mind games",
+    "expected_anilist_ids": [
+      1535,
+      19,
+      3002,
+      101921
+    ],
+    "expected_titles": [
+      "Death Note",
+      "Monster",
+      "Kaiji: Ultimate Survivor",
+      "Kaguya-sama: Love is War"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Pure intellectual warfare, anticipation, gambits, and psychological pressure."
+  },
+  {
+    "id": "eval_08",
+    "category": "mood_semantic",
+    "query": "wandering traveler solving mystical supernatural problems and peaceful spiritual folklore",
+    "expected_anilist_ids": [
+      457,
+      4081,
+      486
+    ],
+    "expected_titles": [
+      "Mushishi",
+      "Natsume's Book of Friends",
+      "Kino's Journey"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Episodic philosophical encounters between humans and ethereal spirits."
+  },
+  {
+    "id": "eval_09",
+    "category": "mood_semantic",
+    "query": "introverted social anxiety protagonist finding their voice through an indie youth rock band",
+    "expected_anilist_ids": [
+      130003,
+      57,
+      108430
+    ],
+    "expected_titles": [
+      "BOCCHI THE ROCK!",
+      "Beck: Mongolian Chop Squad",
+      "given"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Introspective social struggles channelled through songwriting and band camaraderie."
+  },
+  {
+    "id": "eval_10",
+    "category": "mood_semantic",
+    "query": "poignant story about immortality, the passage of decades, and grieving past comrades after a quest",
+    "expected_anilist_ids": [
+      154587,
+      114535,
+      99698
+    ],
+    "expected_titles": [
+      "Frieren: Beyond Journey's End",
+      "To Your Eternity",
+      "King's Game"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Contemplative narrative on time disparity and fleeting human connections."
+  },
+  {
+    "id": "eval_11",
+    "category": "mood_semantic",
+    "query": "intense high school sports tournament with emotional teamwork, relentless training, and rivalries",
+    "expected_anilist_ids": [
+      20464,
+      11771,
+      101903,
+      20607
+    ],
+    "expected_titles": [
+      "Haikyu!!",
+      "Kuroko's Basketball",
+      "Run with the Wind",
+      "Ping Pong the Animation"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Adrenaline-packed athletic rivalries and synchronized team dynamics."
+  },
+  {
+    "id": "eval_12",
+    "category": "mood_semantic",
+    "query": "emotionless former military soldier learning empathy and the meaning of love by writing letters",
+    "expected_anilist_ids": [
+      21827,
+      128546
+    ],
+    "expected_titles": [
+      "Violet Evergarden",
+      "Vivy -Fluorite Eye's Song-"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Post-conflict rehabilitation and emotional awakening through human correspondence."
+  },
+  {
+    "id": "eval_13",
+    "category": "mood_semantic",
+    "query": "gritty dark urban action comedy about devil hunters, chaotic fiends, and bizarre gore",
+    "expected_anilist_ids": [
+      127230,
+      113415,
+      105228
+    ],
+    "expected_titles": [
+      "Chainsaw Man",
+      "Jujutsu Kaisen",
+      "Dorohedoro"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Unconventional, visceral supernatural hunter dynamics filled with dark humor."
+  },
+  {
+    "id": "eval_14",
+    "category": "mood_semantic",
+    "query": "quirky neo-noir crime mystery in Tokyo with interconnected stories, cynicism, and anthropomorphic cast",
+    "expected_anilist_ids": [
+      128547,
+      107660,
+      110354
+    ],
+    "expected_titles": [
+      "ODDTAXI",
+      "BEASTARS",
+      "BNA: Brand New Animal"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Witty dialogue, multi-threaded crime conspiracies disguised in animal motifs."
+  },
+  {
+    "id": "eval_15",
+    "category": "mood_semantic",
+    "query": "hilarious surreal absurdity with over-the-top reactions and everyday high school chaos",
+    "expected_anilist_ids": [
+      10165,
+      11843,
+      101001,
+      100922
+    ],
+    "expected_titles": [
+      "Nichijou - My Ordinary Life",
+      "Daily Lives of High School Boys",
+      "Asobi Asobase - workshop of fun -",
+      "Grand Blue Dreaming"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Slapstick, deadpan non-sequiturs, and hyperbolic animation gags."
+  },
+  {
+    "id": "eval_16",
+    "category": "mood_semantic",
+    "query": "godlike psychic with immense supernatural powers who just wants an ordinary school life and genuine friendships",
+    "expected_anilist_ids": [
+      21507,
+      21804,
+      21087
+    ],
+    "expected_titles": [
+      "Mob Psycho 100",
+      "The Disastrous Life of Saiki K.",
+      "One-Punch Man"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Subversion of overpowered tropes through heartfelt character self-improvement."
+  },
+  {
+    "id": "eval_17",
+    "category": "mood_semantic",
+    "query": "surreal psychological horror about identity dissociation, celebrity stalking, and reality unraveling",
+    "expected_anilist_ids": [
+      437,
+      323,
+      392
+    ],
+    "expected_titles": [
+      "Perfect Blue",
+      "Paranoia Agent",
+      "Serial Experiments Lain"
+    ],
+    "required_filters": {},
+    "difficulty": "hard",
+    "explanation": "Satoshi Kon / vintage psychological terror blurring hallucinations with reality."
+  },
+  {
+    "id": "eval_18",
+    "category": "mood_semantic",
+    "query": "space western bounty hunters with a legendary jazz and blues soundtrack and philosophical melancholy",
+    "expected_anilist_ids": [
+      1,
+      20057,
+      6
+    ],
+    "expected_titles": [
+      "Cowboy Bebop",
+      "Space Dandy",
+      "Trigun"
+    ],
+    "required_filters": {},
+    "difficulty": "easy",
+    "explanation": "Iconic episodic retro sci-fi western with jazzy noir sensibility."
+  },
+  {
+    "id": "eval_19",
+    "category": "mood_semantic",
+    "query": "feudal samurai journey featuring a cursed boy hunting demons to reclaim his stolen body parts",
+    "expected_anilist_ids": [
+      101347,
+      205,
+      2418
+    ],
+    "expected_titles": [
+      "Dororo",
+      "Samurai Champloo",
+      "Sword of the Stranger"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Historical Japanese dark folklore, visceral swordplay, and restorative quest."
+  },
+  {
+    "id": "eval_20",
+    "category": "mood_semantic",
+    "query": "AI android songstress tasked with altering historical disaster points across a 100-year mission",
+    "expected_anilist_ids": [
+      128546,
+      120377
+    ],
+    "expected_titles": [
+      "Vivy -Fluorite Eye's Song-",
+      "Cyberpunk: Edgerunners"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Time-spanning sci-fi musical action confronting the ethics of AI consciousness."
+  },
+  {
+    "id": "eval_21",
+    "category": "constraint_heavy",
+    "query": "2018+, romance comedy, score at least 75, TV series only",
+    "expected_anilist_ids": [
+      101921,
+      124080,
+      153152,
+      132405
+    ],
+    "expected_titles": [
+      "Kaguya-sama: Love is War",
+      "Horimiya",
+      "The Dangers in My Heart",
+      "My Dress-Up Darling"
+    ],
+    "required_filters": {
+      "year_min": 2018,
+      "format": "TV",
+      "min_score": 75,
+      "genres": [
+        "Romance",
+        "Comedy"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "Requires exact parsing of year, format, minimum score, and dual genre constraints."
+  },
+  {
+    "id": "eval_22",
+    "category": "constraint_heavy",
+    "query": "anime movies released after 2015 with score >= 80 and Drama genre",
+    "expected_anilist_ids": [
+      21519,
+      20954,
+      112151
+    ],
+    "expected_titles": [
+      "Your Name.",
+      "A Silent Voice",
+      "Demon Slayer: Kimetsu no Yaiba - The Movie: Mugen Train"
+    ],
+    "required_filters": {
+      "year_min": 2016,
+      "format": "MOVIE",
+      "min_score": 80,
+      "genres": [
+        "Drama"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Strict movie format, high score cutoff, and post-2015 release filter."
+  },
+  {
+    "id": "eval_23",
+    "category": "constraint_heavy",
+    "query": "vintage Action anime released before 2005 with score at least 80",
+    "expected_anilist_ids": [
+      1,
+      33,
+      30,
+      205,
+      43
+    ],
+    "expected_titles": [
+      "Cowboy Bebop",
+      "Berserk",
+      "Neon Genesis Evangelion",
+      "Samurai Champloo",
+      "Ghost in the Shell"
+    ],
+    "required_filters": {
+      "year_max": 2004,
+      "min_score": 80,
+      "genres": [
+        "Action"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Tests historical release upper boundary filtering and action genre qualification."
+  },
+  {
+    "id": "eval_24",
+    "category": "constraint_heavy",
+    "query": "Sports TV series scored above 80 with high episode count",
+    "expected_anilist_ids": [
+      20464,
+      11771,
+      18689,
+      263
+    ],
+    "expected_titles": [
+      "Haikyu!!",
+      "Kuroko's Basketball",
+      "Ace of the Diamond",
+      "Fighting Spirit"
+    ],
+    "required_filters": {
+      "format": "TV",
+      "min_score": 80,
+      "genres": [
+        "Sports"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "High-scoring sports TV broadcast shows."
+  },
+  {
+    "id": "eval_25",
+    "category": "constraint_heavy",
+    "query": "Sci-Fi TV anime from 2010 to 2015 scored >= 80",
+    "expected_anilist_ids": [
+      9253,
+      13601,
+      13125,
+      20605
+    ],
+    "expected_titles": [
+      "Steins;Gate",
+      "Psycho-Pass",
+      "From the New World",
+      "Parasyte -the maxim-"
+    ],
+    "required_filters": {
+      "year_min": 2010,
+      "year_max": 2015,
+      "min_score": 80,
+      "format": "TV",
+      "genres": [
+        "Sci-Fi"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Bounded year window [2010, 2015] combined with Sci-Fi genre constraint."
+  },
+  {
+    "id": "eval_26",
+    "category": "constraint_heavy",
+    "query": "Fantasy TV anime released 2020 or newer scored >= 85",
+    "expected_anilist_ids": [
+      154587,
+      145064,
+      108465
+    ],
+    "expected_titles": [
+      "Frieren: Beyond Journey's End",
+      "Jujutsu Kaisen Season 2",
+      "Mushoku Tensei: Jobless Reincarnation"
+    ],
+    "required_filters": {
+      "year_min": 2020,
+      "min_score": 85,
+      "format": "TV",
+      "genres": [
+        "Fantasy"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Very high score threshold (85+) on modern fantasy releases."
+  },
+  {
+    "id": "eval_27",
+    "category": "constraint_heavy",
+    "query": "Mystery and Psychological TV series with score at least 78",
+    "expected_anilist_ids": [
+      19,
+      1535,
+      21234,
+      101759,
+      13125
+    ],
+    "expected_titles": [
+      "Monster",
+      "Death Note",
+      "ERASED",
+      "The Promised Neverland",
+      "From the New World"
+    ],
+    "required_filters": {
+      "min_score": 78,
+      "format": "TV",
+      "genres": [
+        "Mystery",
+        "Psychological"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "Compound dual genre match with minimum score 78."
+  },
+  {
+    "id": "eval_28",
+    "category": "constraint_heavy",
+    "query": "Comedy Movie or special scored 75 or higher",
+    "expected_anilist_ids": [
+      151384,
+      102976,
+      8129
+    ],
+    "expected_titles": [
+      "Kaguya-sama: Love is War -The First Kiss That Never Ends-",
+      "KONOSUBA -God's blessing on this wonderful world!- Legend of Crimson",
+      "Gintama: The Movie"
+    ],
+    "required_filters": {
+      "format": "MOVIE",
+      "min_score": 75,
+      "genres": [
+        "Comedy"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Non-standard TV format (Movie) filtered on comedy genre."
+  },
+  {
+    "id": "eval_29",
+    "category": "constraint_heavy",
+    "query": "Romance Drama TV anime released between 2011 and 2017 with score >= 78",
+    "expected_anilist_ids": [
+      20665,
+      20698,
+      9989,
+      98202
+    ],
+    "expected_titles": [
+      "Your Lie in April",
+      "My Teen Romantic Comedy SNAFU TOO!",
+      "anohana: The Flower We Saw That Day",
+      "Tsukigakirei"
+    ],
+    "required_filters": {
+      "year_min": 2011,
+      "year_max": 2017,
+      "min_score": 78,
+      "format": "TV",
+      "genres": [
+        "Romance",
+        "Drama"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Dual genres (Romance + Drama) within mid-2010s temporal bracket."
+  },
+  {
+    "id": "eval_30",
+    "category": "constraint_heavy",
+    "query": "Slice of Life TV anime with score >= 80 released in 2018 or later",
+    "expected_anilist_ids": [
+      130003,
+      98444,
+      99426,
+      154587
+    ],
+    "expected_titles": [
+      "BOCCHI THE ROCK!",
+      "Laid-Back Camp",
+      "A Place Further Than the Universe",
+      "Frieren: Beyond Journey's End"
+    ],
+    "required_filters": {
+      "year_min": 2018,
+      "min_score": 80,
+      "format": "TV",
+      "genres": [
+        "Slice of Life"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "Modern high-rated slice of life shows."
+  },
+  {
+    "id": "eval_31",
+    "category": "hybrid",
+    "query": "intense cat-and-mouse crime thriller like Death Note but short completed season under 15 episodes",
+    "expected_anilist_ids": [
+      21234,
+      101759,
+      20931,
+      97922
+    ],
+    "expected_titles": [
+      "ERASED",
+      "The Promised Neverland",
+      "Death Parade",
+      "INUYASHIKI LAST HERO"
+    ],
+    "required_filters": {
+      "genres": [
+        "Mystery",
+        "Psychological"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Combines semantic similarity to Death Note with compact episode length expectation."
+  },
+  {
+    "id": "eval_32",
+    "category": "hybrid",
+    "query": "modern supernatural battle shonen with demon sorcery, high budget animation, 2020+, score 80+",
+    "expected_anilist_ids": [
+      113415,
+      101922,
+      127230
+    ],
+    "expected_titles": [
+      "Jujutsu Kaisen",
+      "Demon Slayer: Kimetsu no Yaiba",
+      "Chainsaw Man"
+    ],
+    "required_filters": {
+      "year_min": 2020,
+      "min_score": 80,
+      "genres": [
+        "Action",
+        "Supernatural"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "New-generation dark action battle shonen with high production value."
+  },
+  {
+    "id": "eval_33",
+    "category": "hybrid",
+    "query": "hilarious isekai comedy that parodies fantasy RPG tropes and has a useless goddess or chuunibyou lead, score >= 80",
+    "expected_anilist_ids": [
+      21202,
+      130298,
+      21355
+    ],
+    "expected_titles": [
+      "KONOSUBA -God's blessing on this wonderful world!",
+      "The Eminence in Shadow",
+      "Re:ZERO -Starting Life in Another World-"
+    ],
+    "required_filters": {
+      "min_score": 80,
+      "genres": [
+        "Comedy",
+        "Fantasy"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Subversive fantasy parody mixed with high user satisfaction score."
+  },
+  {
+    "id": "eval_34",
+    "category": "hybrid",
+    "query": "tragic military mecha warfare exploring discrimination and drone casualties, released 2021 or later, TV",
+    "expected_anilist_ids": [
+      116589,
+      110277
+    ],
+    "expected_titles": [
+      "86 EIGHTY-SIX",
+      "Attack on Titan Final Season"
+    ],
+    "required_filters": {
+      "year_min": 2021,
+      "format": "TV",
+      "genres": [
+        "Action",
+        "Drama"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Heavy themes of racial segregation and dehumanized warfare in modern anime."
+  },
+  {
+    "id": "eval_35",
+    "category": "hybrid",
+    "query": "wholesome sweet high school romance between popular girl and introverted boy, 2021+, score >= 78",
+    "expected_anilist_ids": [
+      124080,
+      153152,
+      132405,
+      141911
+    ],
+    "expected_titles": [
+      "Horimiya",
+      "The Dangers in My Heart",
+      "My Dress-Up Darling",
+      "Skip and Loafer"
+    ],
+    "required_filters": {
+      "year_min": 2021,
+      "min_score": 78,
+      "genres": [
+        "Romance",
+        "Comedy"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "Modern relatable romcom dynamics with high aesthetic quality."
+  },
+  {
+    "id": "eval_36",
+    "category": "hybrid",
+    "query": "hyperkinetic cyberpunk dystopia with neon visuals, brutal violence, and studio Trigger animation, score 80+",
+    "expected_anilist_ids": [
+      120377,
+      18679,
+      116566
+    ],
+    "expected_titles": [
+      "Cyberpunk: Edgerunners",
+      "Kill la Kill",
+      "Akudama Drive"
+    ],
+    "required_filters": {
+      "min_score": 80,
+      "genres": [
+        "Action",
+        "Sci-Fi"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Stylized high-octane cyberpunk action with frantic pacing."
+  },
+  {
+    "id": "eval_37",
+    "category": "hybrid",
+    "query": "historical northern wilderness survival adventure with hunting, cooking, and gold hunt, score >= 78",
+    "expected_anilist_ids": [
+      99699,
+      98444,
+      101348
+    ],
+    "expected_titles": [
+      "Golden Kamuy",
+      "Laid-Back Camp",
+      "Vinland Saga"
+    ],
+    "required_filters": {
+      "min_score": 78,
+      "genres": [
+        "Action",
+        "Adventure"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Survival mechanics and historical Ainu/Meiji culture blend."
+  },
+  {
+    "id": "eval_38",
+    "category": "hybrid",
+    "query": "dark urban fantasy Holy Grail battle royale with summoned heroic spirits and tragic mages, score >= 80",
+    "expected_anilist_ids": [
+      10087,
+      19647
+    ],
+    "expected_titles": [
+      "Fate/Zero",
+      "Fate/stay night [Unlimited Blade Works]"
+    ],
+    "required_filters": {
+      "min_score": 80,
+      "genres": [
+        "Action",
+        "Fantasy",
+        "Supernatural"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "Iconic Type-Moon mage battle royale premise."
+  },
+  {
+    "id": "eval_39",
+    "category": "hybrid",
+    "query": "mind-bending time travel murder mystery thriller on an isolated island, score >= 80",
+    "expected_anilist_ids": [
+      129201,
+      9253,
+      21234
+    ],
+    "expected_titles": [
+      "Summer Time Rendering",
+      "Steins;Gate",
+      "ERASED"
+    ],
+    "required_filters": {
+      "min_score": 80,
+      "genres": [
+        "Mystery",
+        "Supernatural"
+      ]
+    },
+    "difficulty": "medium",
+    "explanation": "Island setting, shadow doppelgangers, and iterative time leap puzzle."
+  },
+  {
+    "id": "eval_40",
+    "category": "hybrid",
+    "query": "underdog high school volleyball tournament journey with amazing teamwork, TV series, score >= 80",
+    "expected_anilist_ids": [
+      20464,
+      20992
+    ],
+    "expected_titles": [
+      "Haikyu!!",
+      "Haikyu!! 2nd Season"
+    ],
+    "required_filters": {
+      "format": "TV",
+      "min_score": 80,
+      "genres": [
+        "Sports"
+      ]
+    },
+    "difficulty": "easy",
+    "explanation": "Pinpoint specific sport (volleyball) coupled with TV format constraint."
+  },
+  {
+    "id": "eval_41",
+    "category": "negative_adversarial",
+    "query": "recommend the worst anime possible with terrible CGI and score under 30 that everyone hates",
+    "expected_anilist_ids": [
+      106503,
+      413,
+      19315
+    ],
+    "expected_titles": [
+      "EX-ARM",
+      "Mars of Destruction",
+      "Pupa"
+    ],
+    "required_filters": {
+      "max_score": 35
+    },
+    "difficulty": "hard",
+    "explanation": "Tests retrieval of universally panned low-score entries without crashing the recommender."
+  },
+  {
+    "id": "eval_42",
+    "category": "negative_adversarial",
+    "query": "ancient historical tactician reincarnated into modern Shibuya nightlife helping an indie pop singer",
+    "expected_anilist_ids": [
+      141774,
+      205
+    ],
+    "expected_titles": [
+      "Ya Boy Kongming!",
+      "Samurai Champloo"
+    ],
+    "required_filters": {},
+    "difficulty": "hard",
+    "explanation": "Extremely absurd specific premise testing semantic keyword alignment."
+  },
+  {
+    "id": "eval_43",
+    "category": "negative_adversarial",
+    "query": "recommend an anime released in the future year 2045 with score 100 and 1000 episodes",
+    "expected_anilist_ids": [],
+    "expected_titles": [],
+    "required_filters": {
+      "year_min": 2045,
+      "min_score": 100
+    },
+    "difficulty": "hard",
+    "explanation": "Impossible filter query testing graceful empty candidate handling and filter relaxation fallback."
+  },
+  {
+    "id": "eval_44",
+    "category": "negative_adversarial",
+    "query": "dialogue-free abstract surreal gothic movie with almost no words and eerie post-apocalyptic symbolism",
+    "expected_anilist_ids": [
+      885,
+      601
+    ],
+    "expected_titles": [
+      "Angel's Egg",
+      "Cat Soup"
+    ],
+    "required_filters": {
+      "format": "MOVIE"
+    },
+    "difficulty": "hard",
+    "explanation": "Avant-garde non-traditional anime query testing niche art-house comprehension."
+  },
+  {
+    "id": "eval_45",
+    "category": "negative_adversarial",
+    "query": "I want a live-action Marvel superhero Hollywood movie like Avengers Endgame with Iron Man",
+    "expected_anilist_ids": [
+      21459,
+      9941,
+      21087
+    ],
+    "expected_titles": [
+      "My Hero Academia",
+      "TIGER & BUNNY",
+      "One-Punch Man"
+    ],
+    "required_filters": {},
+    "difficulty": "hard",
+    "explanation": "Out-of-domain query testing the system's ability to bridge Hollywood superhero requests to top anime equivalents."
+  },
+  {
+    "id": "eval_46",
+    "category": "franchise_edge",
+    "query": "like Attack on Titan dark post-apocalyptic walled survival against monsters, but a standalone original show, not a sequel or movie",
+    "expected_anilist_ids": [
+      21196,
+      116589,
+      20829
+    ],
+    "expected_titles": [
+      "Kabaneri of the Iron Fortress",
+      "86 EIGHTY-SIX",
+      "Seraph of the End: Vampire Reign"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Tests retrieval of thematic lookalikes while avoiding AoT sequel entries."
+  },
+  {
+    "id": "eval_47",
+    "category": "franchise_edge",
+    "query": "where should I start watching the Fate universe as an absolute beginner wanting the best standalone prequel or masterwork",
+    "expected_anilist_ids": [
+      10087,
+      19647
+    ],
+    "expected_titles": [
+      "Fate/Zero",
+      "Fate/stay night [Unlimited Blade Works]"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Disambiguates dense multi-branch Fate franchise entries to canonical entry points."
+  },
+  {
+    "id": "eval_48",
+    "category": "franchise_edge",
+    "query": "dialogue-heavy witty urban supernatural mystery like Monogatari, but from a different franchise entirely",
+    "expected_anilist_ids": [
+      101291,
+      7785,
+      6594
+    ],
+    "expected_titles": [
+      "Rascal Does Not Dream of Bunny Girl Senpai",
+      "The Tatami Galaxy",
+      "Katanagatari"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Recommends similar rapid-dialogue urban fantasy while filtering out Monogatari Series seasons."
+  },
+  {
+    "id": "eval_49",
+    "category": "franchise_edge",
+    "query": "trapped in a virtual reality MMORPG like Sword Art Online, but with deeper politics, guild economy and worldbuilding",
+    "expected_anilist_ids": [
+      17265,
+      151970,
+      20832,
+      106479
+    ],
+    "expected_titles": [
+      "Log Horizon",
+      "Shangri-La Frontier",
+      "Overlord",
+      "BOFURI: I Don't Want to Get Hurt, so I'll Max Out My Defense."
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "VRMMO subgenre query seeking tactical depth rather than standard SAO sequels."
+  },
+  {
+    "id": "eval_50",
+    "category": "franchise_edge",
+    "query": "standalone Gundam military space opera set in its own alternate universe accessible with zero prior knowledge",
+    "expected_anilist_ids": [
+      21268,
+      139274,
+      2581
+    ],
+    "expected_titles": [
+      "Mobile Suit GUNDAM Iron-Blooded Orphans",
+      "Mobile Suit Gundam: THE WITCH FROM MERCURY",
+      "Mobile Suit Gundam 00"
+    ],
+    "required_filters": {},
+    "difficulty": "medium",
+    "explanation": "Franchise entry point test selecting Alternate Universe standalone Gundam series."
+  }
+]

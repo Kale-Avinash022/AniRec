@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "AniRec"
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
     DEBUG: bool = False
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+
 
     # Path Settings (Dynamically resolved relative to project root)
     BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent

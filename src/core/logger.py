@@ -76,17 +76,17 @@ class StructuredLogger:
         req_id = event_data.get("request_id", "unknown")
         self.logger.info(f"Processed Request {req_id} in {total_lat}ms")
 
-    def info(self, msg: str) -> None:
-        self.logger.info(msg)
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self.logger.info(msg, *args, **kwargs)
 
-    def debug(self, msg: str) -> None:
-        self.logger.debug(msg)
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self.logger.debug(msg, *args, **kwargs)
 
-    def warning(self, msg: str) -> None:
-        self.logger.warning(msg)
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self.logger.warning(msg, *args, **kwargs)
 
-    def error(self, msg: str) -> None:
-        self.logger.error(msg)
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self.logger.error(msg, *args, **kwargs)
 
 
 # Global singleton logger instance
