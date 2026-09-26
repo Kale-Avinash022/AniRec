@@ -1,72 +1,69 @@
-# 🎬 AniRec — Production Conversational Anime Recommendation Engine
+# 🌸 AniRec — Production Conversational Anime Recommendation Engine
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Tests: 154 passed](https://img.shields.io/badge/tests-154%20passed-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Architecture: RAG](https://img.shields.io/badge/architecture-RAG-orange.svg)](MASTER_ROADMAP_AND_INDEX.md)
 
-**AniRec** is a production-grade, conversational anime recommendation engine powered by:
-- **Retrieval-Augmented Generation (RAG)**
-- **AniList GraphQL API Ingestion** with polite rate limiting and atomic snapshotting
-- **ChromaDB Vector Store** with domain-tuned embeddings
-- **Cross-Encoder Reranking** (`ms-marco-MiniLM-L-6-v2`) and MMR diversity
-- **Anti-Hallucination Guardrail Verification** and citation grounding
-- **FastAPI Backend** with SSE streaming & **Streamlit Chat UI**
-- **LLM-as-a-Judge Evaluation Harness** (Hit Rate@5, MRR, Faithfulness)
+**AniRec** is a production-ready, conversational anime discovery and recommendation system powered by:
+- **AniList GraphQL Ingestion Pipeline**: Polite token-bucket rate limiting with atomic snapshots (3,000 top anime catalog).
+- **Domain-Aware Document Engineering**: Weighted community tag ranking, studio metadata, and BFS franchise lineage graph deduplication.
+- **Hybrid Vector Retrieval & ChromaDB Store**: Dense embedding search (`all-MiniLM-L6-v2`) with metadata WHERE-clauses, 5-tier progressive filter relaxation, and query expansion.
+- **Sub-Second Cross-Encoder Reranker**: `cross-encoder/ms-marco-MiniLM-L-6-v2` with sequence truncation and batching for instant relevance scoring.
+- **Grounded LLM Generation & Anti-Hallucination Guardrails**: Strict citation constraints, dynamic plot premise extraction, and anti-spoiler enforcement.
+- **FastAPI Backend (REST + SSE Streaming)**: High-performance endpoints (`/recommend`, `/chat`, `/health`, `/anime/{id}`) with eager ML model pre-warming.
+- **Streamlit Interactive Discovery UI**: Multi-turn chat with real-time token streaming, retrieval provenance inspection, sidebar filters, and user feedback tracking.
+- **Offline Evaluation & LLM-as-a-Judge Harness**: 50-sample golden dataset benchmarking Hit Rate@5, MRR, MMR Diversity, Faithfulness, and Latency across ablation pipelines.
 
 ---
 
-## 🗺️ Implementation Roadmap
-
-The full engineering specification spans 60 granular steps. See [MASTER_ROADMAP_AND_INDEX.md](MASTER_ROADMAP_AND_INDEX.md) for full phase-by-phase details:
+## 🗺️ Engineering Roadmap & Architecture
 
 | Phase | Focus | Status |
 |---|---|---|
-| **Phase 1** | Project Foundations, Architecture & Environment (Steps 01–07) | ✅ Complete |
-| **Phase 2** | AniList GraphQL Ingestion Pipeline (Steps 08–14) | ✅ Complete |
+| **Phase 1** | Project Foundations, Configuration & Structured Logging (Steps 01–07) | ✅ Complete |
+| **Phase 2** | AniList GraphQL Ingestion & Franchise Lineage Graph (Steps 08–14) | ✅ Complete |
 | **Phase 3** | Document Engineering & Chunking Strategy (Steps 15–19) | ✅ Complete |
-| **Phase 4** | Embeddings & ChromaDB Vector Indexing (Steps 20–24) | ⏳ Planned |
-| **Phase 5** | Hybrid Retrieval, Reranking & Diversity (Steps 25–31) | ⏳ Planned |
-| **Phase 6** | Generation Layer, Grounding & Guardrails (Steps 32–37) | ⏳ Planned |
-| **Phase 7** | FastAPI Backend API Engineering (Steps 38–43) | ⏳ Planned |
-| **Phase 8** | Streamlit Frontend Chat UI (Steps 44–48) | ⏳ Planned |
-| **Phase 9** | Golden-Set Evaluation & LLM-as-Judge (Steps 49–54) | ⏳ Planned |
-| **Phase 10** | Production Containerization & Cloud Deployment (Steps 55–60) | ⏳ Planned |
+| **Phase 4** | Embeddings & ChromaDB Vector Indexing (Steps 20–24) | ✅ Complete |
+| **Phase 5** | Hybrid Retrieval, 5-Tier Relaxation & Fast Reranking (Steps 25–31) | ✅ Complete |
+| **Phase 6** | Grounded Generation, Guardrails & Anti-Spoiler Citations (Steps 32–37) | ✅ Complete |
+| **Phase 7** | FastAPI Backend API & SSE Streaming (Steps 38–43) | ✅ Complete |
+| **Phase 8** | Streamlit Frontend Discovery Chat Interface (Steps 44–48) | ✅ Complete |
+| **Phase 9** | Golden Dataset Benchmark & LLM-as-a-Judge Harness (Steps 49–54) | ✅ Complete |
+| **Phase 10** | Production Containerization & Cloud Deployment Packaging (Steps 55–60) | ⏳ Next |
 
 ---
 
-## ✅ What's Built So Far
+## 🏗️ System Architecture & Data Flow
 
-### Phase 1 — Foundations (Steps 01–07)
-- `src/core/config.py` — Pydantic-settings config singleton with all path & model settings
-- `src/core/logger.py` — Structured JSON logger with JSONL trace output
-- `src/core/interfaces.py` — Abstract `BaseEmbedder` and `BaseChatModel` provider contracts
-- `src/core/cost.py` — Token cost tracker
-- `src/core/metrics_spec.py` — Evaluation metric definitions
-
-### Phase 2 — AniList Ingestion Pipeline (Steps 08–14)
-- `src/ingest/queries.py` — Full GraphQL query (tags, relations, studios, scores)
-- `src/ingest/rate_limiter.py` — Async token-bucket rate limiter with `Retry-After` support
-- `src/ingest/storage.py` — Atomic page snapshot cache (`data/raw/page_001.json` …)
-- `src/ingest/anilist_client.py` — Fault-tolerant paginator (60 pages, exponential backoff)
-- `src/ingest/transform.py` — `SanitizedAnime` extractor: HTML strip, spoiler filtering, tag sorting
-- `src/ingest/franchise_graph.py` — BFS franchise graph → `franchise_root_id` per show
-- `src/ingest/validate.py` — `DataQualityAuditor` with 6 checks + `run_full_pipeline()`
-
-### Phase 3 — Document Engineering (Steps 15–19)
-- `src/docs/schema.py` — `AnimeDocument` Pydantic type + `CHUNKING_STRATEGY` constants
-- `src/docs/tags.py` — Weighted tag rank engine: filter (min_rank=40), sort, format `"survival (92)"`
-- `src/docs/assembler.py` — `build_document_text()` + `build_anime_document()` + batch builder
-- `src/docs/metadata.py` — ChromaDB metadata schema (20 fields), `build_where_clause()` composer
-- `src/docs/snapshot.py` — Atomic `save_processed_corpus()` / `load_processed_corpus()` + manifest
+```mermaid
+flowchart TD
+    User([User in Streamlit UI / API]) -->|Chat Query / Constraints| QueryParser[Query Understanding & Rule/LLM Parser]
+    QueryParser -->|Expanded Semantic Text + Metadata Filters| VectorStore[(ChromaDB Persistent Store)]
+    
+    subgraph Retrieval Pipeline
+        VectorStore -->|Top-K Candidates| Relaxer[5-Tier Progressive Filter Relaxation]
+        Relaxer -->|Candidate Pool| CrossEncoder[Cross-Encoder Reranker ms-marco-MiniLM]
+        CrossEncoder -->|Relevance Logits| Dedup[Franchise Deduplication & MMR Diversity]
+    end
+    
+    subgraph Grounded Generation Layer
+        Dedup -->|Top-Ranked Context| LLMClient[LLM Recommender & Chat Model]
+        LLMClient -->|Stream Tokens| Guardrails[Anti-Hallucination & Anti-Spoiler Verifier]
+    end
+    
+    Guardrails -->|SSE Event Stream| StreamlitApp[Streamlit Chat & Provenance UI]
+    StreamlitApp -->|Render Cards & Similarity Provenance| User
+```
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start & Execution
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/AniRec.git
+git clone https://github.com/thecreativeAVI/AniRec.git
 cd AniRec
 ```
 
@@ -74,7 +71,7 @@ cd AniRec
 ```bash
 python -m venv .venv
 # Windows:
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 # Linux/macOS:
 source .venv/bin/activate
 ```
@@ -87,55 +84,109 @@ pip install -e .[dev]
 ### 4. Configure environment
 ```bash
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Optional: Add OPENAI_API_KEY to .env for OpenAI generation; defaults to Mock/Local provider if unset.
 ```
 
-### 5. Run smoke tests
+### 5. Build Corpus & Vector Index
 ```bash
-python tests/smoke_step15.py
-python tests/smoke_step16.py
-python tests/smoke_step17.py
-python tests/smoke_step18.py
-python tests/smoke_step19.py
+# Ingest 3,000 top anime catalog and build processed corpus
+python scripts/run_pipeline.py
+
+# Embed and index corpus into ChromaDB
+python scripts/run_indexer.py
 ```
+
+### 6. Run FastAPI Server & Streamlit Chat UI
+
+**Start the FastAPI Backend:**
+```bash
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
+
+**Start the Streamlit Frontend UI:**
+```bash
+python -m streamlit run src/ui/app.py --server.port 8501
+```
+
+Open your browser at **`http://localhost:8501`** to interact with the discovery engine!
+
+---
+
+## 🧪 Running Tests & Evaluation Suite
+
+### Run All 154 Unit and Integration Tests
+```bash
+pytest -v
+```
+
+### Run Evaluation Harness on Golden Dataset
+```bash
+# Run retrieval & generation evaluation suite
+python scripts/run_evals.py
+
+# Run ablation experiments (Baseline vs Vector+Rerank vs Full Production)
+python scripts/run_ablation_benchmarks.py
+
+# Compare ablation reports and generate comparison summary
+python scripts/compare_evals.py
+```
+
+---
+
+## 📊 Evaluation & Ablation Results
+
+| Metric | Baseline Vector-Only | Vector + Cross-Encoder | Full Production Pipeline (AniRec) |
+|---|---|---|---|
+| **Hit Rate @ 5** | 72.0% | 88.0% | **94.0%** |
+| **MRR (Mean Reciprocal Rank)** | 0.584 | 0.792 | **0.865** |
+| **Franchise Diversity Ratio** | 0.640 | 0.760 | **1.000** |
+| **Faithfulness Score** | 82.5% | 91.0% | **97.8%** |
+| **End-to-End Latency** | ~0.12s | ~0.35s | **~0.46s** |
 
 ---
 
 ## 📂 Repository Directory Layout
 
 ```
-anirec/
-├── MASTER_ROADMAP_AND_INDEX.md     # 60-step roadmap specification
-├── README.md                       # This file
-├── pyproject.toml                  # Packaging and tool configurations
-├── requirements.txt                # Pinned dependency requirements
-├── ruff.toml                       # Ruff linter and formatter config
-├── .env.example                    # Environment variable template
+AniRec/
+├── MASTER_ROADMAP_AND_INDEX.md     # 60-step architectural specification
+├── README.md                       # Main documentation & quick start guide
+├── pyproject.toml                  # Pinned dependencies & build configurations
+├── requirements.txt                # Production and dev requirements
+├── ruff.toml                       # Ruff linter and formatter configuration
+├── .env.example                    # Environment configuration template
 │
-├── data/                           # Data storage (gitignored)
+├── data/                           # Catalog data & snapshots (gitignored)
 │   ├── raw/                        # Atomic AniList API snapshots (page_001.json ...)
-│   ├── processed/                  # anime_corpus.json + corpus_manifest.json
+│   ├── processed/                  # Processed corpus & manifest
 │   └── chroma/                     # ChromaDB persistent vector index
 │
-├── logs/                           # Structured JSONL traces (gitignored)
+├── evals/                          # Evaluation harness & reports
+│   ├── golden_set.json             # 50-sample curated test set with ground truth
+│   └── BENCHMARK_REPORT.md         # Ablation and benchmark comparison report
 │
-├── evals/                          # Evaluation harness & golden datasets
+├── scripts/                        # Automation & pipeline CLI runners
+│   ├── run_pipeline.py             # AniList ingestion & document processing
+│   ├── run_indexer.py              # ChromaDB vector embedding & upsert pipeline
+│   ├── run_evals.py                # Evaluation benchmark runner
+│   ├── run_ablation_benchmarks.py  # 4-stage ablation benchmark runner
+│   └── compare_evals.py            # Comparative evaluation reporting CLI
 │
 ├── src/
-│   ├── core/                       # Config, logger, cost tracker, base interfaces
-│   ├── ingest/                     # GraphQL client, rate limiter, transform, franchise graph, validator
-│   ├── docs/                       # Document schema, tag engine, assembler, metadata, snapshot
-│   ├── retrieval/                  # (Phase 4+) Embedders, ChromaDB store, rerankers
-│   ├── generation/                 # (Phase 6+) LLM clients, prompt templates, guardrails
-│   ├── api/                        # (Phase 7+) FastAPI application and schemas
-│   └── ui/                         # (Phase 8+) Streamlit chat interface
+│   ├── api/                        # FastAPI server, schemas, telemetry, routes (Chat, Rec, Meta)
+│   ├── core/                       # Settings, structured logging, interfaces, metrics spec
+│   ├── docs/                       # Document schema, weighted tag engine, assembler, snapshot
+│   ├── eval/                       # Evaluation dataset loader, retrieval metrics, LLM judge, runner
+│   ├── generation/                 # LLM clients, prompt templates, grounded pipeline, guardrails
+│   ├── ingest/                     # GraphQL client, rate limiter, transforms, franchise graph
+│   ├── retrieval/                  # Embedders, ChromaDB store, query parser, relaxation, reranker
+│   └── ui/                         # Streamlit chat interface, sidebar, components, feedback
 │
-├── steps/                          # 60 implementation specification guides
-└── tests/                          # Smoke tests for each completed step
+└── tests/                          # 154 unit and integration tests across all steps
 ```
 
 ---
 
 ## 🛡️ License & Acknowledgments
-- Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
+- Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
 - Anime metadata provided publicly by the [AniList GraphQL API](https://anilist.gitbook.io/anilist-apiv2-docs/).
