@@ -37,6 +37,22 @@ class RecommendedShow(BaseModel):
         default_factory=list,
         description="Specific community tags, genres, or studio attributes matched",
     )
+    cover_image_url: Optional[str] = Field(
+        None,
+        description="URL to the cover image / poster of the show",
+    )
+    site_url: Optional[str] = Field(
+        None,
+        description="URL to the AniList show page",
+    )
+    score: Optional[int] = Field(
+        None,
+        description="Average user score out of 100",
+    )
+    format: Optional[str] = Field(
+        None,
+        description="Format of the show (TV, MOVIE, OVA, etc.)",
+    )
 
 
 class RecommendationOutput(BaseModel):

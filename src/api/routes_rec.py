@@ -102,19 +102,42 @@ async def get_recommendations(
         if 1 <= extracted <= 30:
             target_k = extracted
 
-    retrieval_k = max(target_k * 4, 30)
-    rerank_k = max(target_k * 2, 20)
+    retrieval_k = max(target_k * 8, 80)
+    rerank_k = max(target_k * 5, 50)
 
     # ── 2. Vector Search with Progressive Relaxation ─────────────────────────
     profiler.start_stage("retrieval")
-    candidates, relaxations = search_with_relaxation(
-        store=store,
-        embedder=embedder,
-        semantic_text=parsed.semantic_text,
-        initial_filters=active_filters,
-        min_results_needed=min(retrieval_k, 20),
-        top_k=retrieval_k,
-    )
+    relaxations: list[str] = []
+    if parsed.is_comparison and parsed.comparison_titles:
+        from src.retrieval.search import retrieve_title_candidate
+
+        comparison_candidates: list[dict[str, Any]] = []
+        for title in parsed.comparison_titles:
+            c = retrieve_title_candidate(store=store, embedder=embedder, reranker=reranker, title=title)
+            if c and c not in comparison_candidates:
+                comparison_candidates.append(c)
+
+        if len(comparison_candidates) >= 2:
+            candidates = comparison_candidates
+        else:
+            candidates, relaxations = search_with_relaxation(
+                store=store,
+                embedder=embedder,
+                semantic_text=parsed.semantic_text,
+                initial_filters=active_filters,
+                min_results_needed=min(retrieval_k, 50),
+                top_k=retrieval_k,
+            )
+    else:
+        candidates, relaxations = search_with_relaxation(
+            store=store,
+            embedder=embedder,
+            semantic_text=parsed.semantic_text,
+            initial_filters=active_filters,
+            min_results_needed=min(retrieval_k, 50),
+            top_k=retrieval_k,
+        )
+
 
     # Exclude user-specified IDs (e.g. already watched)
     if payload.exclude_ids:
@@ -162,10 +185,17 @@ async def get_recommendations(
     )
     profiler.end_stage("generation")
 
-    # ── 6. Response & Provenance Assembly ────────────────────────────────────
+    def _extract_candidate_id(c: dict[str, Any]) -> int:
+        meta = c.get("metadata", {})
+        val = meta.get("anilist_id") or meta.get("anime_id") or c.get("id") or 0
+        try:
+            return int(str(val).replace("anilist_", "").strip())
+        except (ValueError, TypeError):
+            return 0
+
     provenance = [
         CandidateProvenance(
-            anilist_id=int(c.get("metadata", {}).get("anilist_id", c.get("id", 0))),
+            anilist_id=_extract_candidate_id(c),
             title=c.get("metadata", {}).get("title_romaji", "Unknown"),
             similarity_score=round(float(c.get("similarity", 0.0)), 4),
             rerank_score=round(float(c.get("rerank_score", 0.0)), 4)
@@ -178,7 +208,7 @@ async def get_recommendations(
     ]
 
     meta_lookup = {
-        int(c.get("metadata", {}).get("anilist_id", c.get("id", 0))): c.get("metadata", {})
+        _extract_candidate_id(c): c.get("metadata", {})
         for c in top_candidates
     }
 

@@ -32,6 +32,8 @@ wheels/
 data/raw/
 data/chroma/
 data/processed/
+data/cache/
+
 
 # Logs & Traces
 logs/

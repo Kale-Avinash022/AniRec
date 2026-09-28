@@ -39,6 +39,9 @@ async def health_check() -> HealthResponse:
     )
 
 
+from src.ingest.cache import get_anilist_cache
+
+
 @router.get(
     "/anime/{anime_id}",
     response_model=AnimeDetailResponse,
@@ -46,10 +49,11 @@ async def health_check() -> HealthResponse:
     status_code=status.HTTP_200_OK,
 )
 async def get_anime_detail(anime_id: int) -> AnimeDetailResponse:
-    """Fetch complete show metadata from the ChromaDB collection by AniList ID."""
+    """Fetch complete show metadata from ChromaDB or 2-day persistent AniList cache with outage fallback."""
     store, _, _, _ = get_services()
+    cache = get_anilist_cache()
 
-    # Search for both standard ID format "anilist_{id}" and plain integer string "{id}"
+    # 1. Check ChromaDB collection first
     possible_ids = [f"anilist_{anime_id}", str(anime_id)]
     results = store.collection.get(
         ids=possible_ids,
@@ -57,39 +61,45 @@ async def get_anime_detail(anime_id: int) -> AnimeDetailResponse:
     )
 
     ids = results.get("ids", [])
-    if not ids or not ids[0]:
-        logger.warning(f"Anime ID {anime_id} not found in ChromaDB collection.")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Anime ID {anime_id} was not found in the catalog.",
+    if ids and ids[0]:
+        meta = results["metadatas"][0] if results.get("metadatas") else {}
+        doc_text = results["documents"][0] if results.get("documents") else ""
+
+        genres_str = meta.get("genres", "")
+        genres_list = [g.strip() for g in genres_str.split(",") if g.strip()] if isinstance(genres_str, str) else []
+
+        tags_str = meta.get("top_tags", meta.get("top_tags_str", ""))
+        tags_list = [t.strip() for t in tags_str.split(",") if t.strip()] if isinstance(tags_str, str) else []
+
+        return AnimeDetailResponse(
+            anime_id=anime_id,
+            id_mal=meta.get("id_mal"),
+            franchise_root_id=meta.get("franchise_root_id", anime_id),
+            title_romaji=meta.get("title_romaji", f"Anime #{anime_id}"),
+            title_english=meta.get("title_english") or None,
+            season_year=meta.get("season_year") or None,
+            season=meta.get("season") or None,
+            format=meta.get("format", "TV"),
+            status=meta.get("status", "FINISHED"),
+            episodes=meta.get("episodes") or None,
+            duration_mins=meta.get("duration_mins") or None,
+            average_score=meta.get("average_score") or None,
+            popularity=meta.get("popularity") or None,
+            genres=genres_list,
+            top_tags=tags_list,
+            description_clean=doc_text or meta.get("description_clean", ""),
+            cover_image_url=meta.get("cover_image_url") or None,
+            site_url=meta.get("site_url") or f"https://anilist.co/anime/{anime_id}",
         )
 
-    meta = results["metadatas"][0] if results.get("metadatas") else {}
-    doc_text = results["documents"][0] if results.get("documents") else ""
+    # 2. Check 2-day persistent cache
+    cached_anime = cache.get_anime(anime_id)
+    if cached_anime:
+        logger.info(f"Loaded anime {anime_id} from 2-day persistent cache.")
+        return AnimeDetailResponse.model_validate(cached_anime)
 
-    genres_str = meta.get("genres", "")
-    genres_list = [g.strip() for g in genres_str.split(",") if g.strip()] if isinstance(genres_str, str) else []
-
-    tags_str = meta.get("top_tags", meta.get("top_tags_str", ""))
-    tags_list = [t.strip() for t in tags_str.split(",") if t.strip()] if isinstance(tags_str, str) else []
-
-    return AnimeDetailResponse(
-        anime_id=anime_id,
-        id_mal=meta.get("id_mal"),
-        franchise_root_id=meta.get("franchise_root_id", anime_id),
-        title_romaji=meta.get("title_romaji", f"Anime #{anime_id}"),
-        title_english=meta.get("title_english") or None,
-        season_year=meta.get("season_year") or None,
-        season=meta.get("season") or None,
-        format=meta.get("format", "TV"),
-        status=meta.get("status", "FINISHED"),
-        episodes=meta.get("episodes") or None,
-        duration_mins=meta.get("duration_mins") or None,
-        average_score=meta.get("average_score") or None,
-        popularity=meta.get("popularity") or None,
-        genres=genres_list,
-        top_tags=tags_list,
-        description_clean=doc_text or meta.get("description_clean", ""),
-        cover_image_url=meta.get("cover_image_url") or None,
-        site_url=meta.get("site_url") or f"https://anilist.co/anime/{anime_id}",
+    logger.warning(f"Anime ID {anime_id} not found in ChromaDB collection or persistent cache.")
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Anime ID {anime_id} was not found in the catalog.",
     )

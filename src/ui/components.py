@@ -46,46 +46,196 @@ def render_provenance_expander(
                 st_module.caption(f"🏷️ *Attributes:* `{tags}`")
 
 
+# Default high-contrast anime placeholder poster when image is unavailable
+FALLBACK_COVER_URL = "https://placehold.co/230x320/1f2937/f9fafb?text=AniRec"
+
+
+def render_cover_cards_grid(
+    st_module: Any,
+    candidates: list[dict[str, Any]],
+    cols_per_row: int = 5,
+) -> None:
+    """Render a responsive cover-image grid for a list of suggested anime."""
+    if not candidates:
+        return
+
+    st_module.markdown("")
+    actual_cols = min(max(1, len(candidates)), cols_per_row)
+
+    for row_start in range(0, len(candidates), actual_cols):
+        row = candidates[row_start : row_start + actual_cols]
+        cols = st_module.columns(len(row))
+        for col, show in zip(cols, row, strict=False):
+            with col:
+                title = show.get("title") or show.get("title_romaji") or "Unknown Anime"
+                year = show.get("year") or show.get("season_year") or ""
+                fmt = show.get("format") or ""
+                score = show.get("score") or show.get("average_score")
+                aid = show.get("anilist_id") or show.get("id") or ""
+                site_url = show.get("site_url") or (f"https://anilist.co/anime/{aid}" if aid else "")
+                cover = show.get("cover_image_url") or FALLBACK_COVER_URL
+
+                st_module.image(cover, use_container_width=True)
+                meta_parts = [p for p in [str(year) if year else "", str(fmt) if fmt else ""] if p]
+                score_str = f" · ⭐{score}" if score else ""
+                meta_line = f"{' · '.join(meta_parts)}{score_str}"
+
+                link_target = site_url if site_url else "#"
+                st_module.markdown(
+                    f"**[{title}]({link_target})**  \n"
+                    f"<span style='font-size:0.75rem;color:#888'>{meta_line}</span>",
+                    unsafe_allow_html=True,
+                )
+
+
+def render_aligned_recommendation_card(
+    st_module: Any,
+    rank: int,
+    show: dict[str, Any],
+    description_override: str | None = None,
+) -> None:
+    """Render a single suggestion with its poster picture aligned on the left and full 100-150 word description on the right."""
+    title = show.get("title") or show.get("title_romaji") or "Unknown Anime"
+    year = show.get("year") or show.get("season_year") or ""
+    fmt = show.get("format") or ""
+    score = show.get("score") or show.get("average_score")
+    aid = show.get("anilist_id") or show.get("id") or ""
+    site_url = show.get("site_url") or (f"https://anilist.co/anime/{aid}" if aid else "")
+    cover = show.get("cover_image_url") or FALLBACK_COVER_URL
+    genres = show.get("genres") or ""
+    tags = show.get("tags") or show.get("matched_tags") or show.get("top_tags") or ""
+
+    desc = description_override or show.get("why") or show.get("synopsis") or ""
+
+    col1, col2 = st_module.columns([1, 4])
+
+    with col1:
+        st_module.image(cover, use_container_width=True)
+
+    with col2:
+        meta_parts = []
+        if year:
+            meta_parts.append(f"📅 **{year}**")
+        if fmt:
+            meta_parts.append(f"🎞️ **{fmt}**")
+        if score:
+            meta_parts.append(f"⭐ **{score}/100**")
+
+        st_module.markdown(f"### {rank}. [{title}]({site_url})")
+        if meta_parts:
+            st_module.markdown(
+                f"<span style='font-size:0.85rem;color:#6c757d'>{' · '.join(meta_parts)}</span>",
+                unsafe_allow_html=True,
+            )
+
+        matched_items = []
+        if tags:
+            matched_items.extend([t.strip() for t in str(tags).split(",")[:4] if t.strip()])
+        elif genres:
+            matched_items.extend([g.strip() for g in str(genres).split(",")[:4] if g.strip()])
+
+        if matched_items:
+            tag_badges = " ".join([f"`{item}`" for item in matched_items])
+            st_module.markdown(f"🏷️ {tag_badges}")
+
+        st_module.write(desc)
+
+    st_module.divider()
+
+
+def parse_streamed_suggestions(content: str) -> tuple[str, dict[int, str]]:
+    """Extract introductory message and individual numbered recommendation descriptions."""
+    import re
+
+    pattern = (
+        r"(?:^|\n)\s*(\d{1,2})\.\s+(?:\*\*(.*?)\*\*|([^*\n—–]+?))\s*(?:\(\d{4}\))?\s*[—–-]\s*(.*?)"
+        r"(?=(?:\n\s*\d{1,2}\.\s+)|$)"
+    )
+    matches = list(re.finditer(pattern, content, re.DOTALL))
+
+    if not matches:
+        return content, {}
+
+    first_match_start = matches[0].start()
+    intro_text = content[:first_match_start].strip()
+
+    descriptions_by_rank: dict[int, str] = {}
+    for m in matches:
+        rank = int(m.group(1))
+        desc = m.group(4).strip()
+        descriptions_by_rank[rank] = desc
+
+    return intro_text, descriptions_by_rank
+
+
 def render_recommendation_card(
     st_module: Any,
     show: dict[str, Any],
 ) -> None:
     """Render a single formatted recommendation card with cover image & justification."""
-    title = show.get("title", "Unknown Title")
-    year = show.get("year")
-    format_type = show.get("format")
-    score = show.get("score")
-    why = show.get("why", "")
-    matched_attrs = show.get("matched_attributes", [])
-    cover_url = show.get("cover_image_url")
-    site_url = show.get("site_url") or f"https://anilist.co/anime/{show.get('anilist_id', '')}"
+    render_aligned_recommendation_card(st_module, rank=1, show=show)
 
-    col1, col2 = st_module.columns([1, 4])
 
-    with col1:
-        if cover_url:
-            st_module.image(cover_url, use_container_width=True)
-        else:
-            st_module.markdown("🎬 **[No Image]**")
+def render_comparison_view(
+    st_module: Any,
+    candidates: list[dict[str, Any]],
+    comparison_markdown: str,
+) -> None:
+    """Render a head-to-head comparison view with side-by-side anime poster cards and analytical breakdown."""
+    if len(candidates) >= 2:
+        c1, c2 = candidates[0], candidates[1]
 
-    with col2:
-        header_parts = [f"### [{title}]({site_url})"]
-        meta_sub = []
-        if year:
-            meta_sub.append(f"📅 {year}")
-        if format_type:
-            meta_sub.append(f"🎞️ {format_type}")
-        if score:
-            meta_sub.append(f"⭐ **{score}/100**")
+        # Display side-by-side comparison poster cards
+        col1, col_vs, col2 = st_module.columns([4, 1, 4])
 
-        st_module.markdown(" ".join(header_parts))
-        if meta_sub:
-            st_module.caption(" • ".join(meta_sub))
+        with col1:
+            title1 = c1.get("title") or c1.get("title_romaji") or "Show A"
+            aid1 = c1.get("anilist_id") or c1.get("id") or ""
+            site_url1 = c1.get("site_url") or (f"https://anilist.co/anime/{aid1}" if aid1 else "")
+            cover1 = c1.get("cover_image_url") or FALLBACK_COVER_URL
+            score1 = c1.get("score") or c1.get("average_score")
+            year1 = c1.get("year") or c1.get("season_year") or ""
+            fmt1 = c1.get("format") or "TV"
+            genres1 = c1.get("genres") or ""
 
-        st_module.write(why)
+            st_module.image(cover1, use_container_width=True)
+            meta1 = f"📅 {year1} · 🎞️ {fmt1}" + (f" · ⭐ {score1}/100" if score1 else "")
+            st_module.markdown(
+                f"#### [{title1}]({site_url1})\n<span style='font-size:0.85rem;color:#6c757d'>{meta1}</span>",
+                unsafe_allow_html=True,
+            )
+            if genres1:
+                g_pills = " ".join([f"`{g.strip()}`" for g in str(genres1).split(",")[:3] if g.strip()])
+                st_module.markdown(f"🏷️ {g_pills}")
 
-        if matched_attrs:
-            badges = " ".join([f"`{attr}`" for attr in matched_attrs])
-            st_module.markdown(f"🏷️ **Matched:** {badges}")
+        with col_vs:
+            st_module.markdown(
+                "<div style='text-align:center;padding-top:80px;font-size:1.8rem;font-weight:bold;color:#FF4B4B;'>⚔️<br>VS</div>",
+                unsafe_allow_html=True,
+            )
 
-    st_module.divider()
+        with col2:
+            title2 = c2.get("title") or c2.get("title_romaji") or "Show B"
+            aid2 = c2.get("anilist_id") or c2.get("id") or ""
+            site_url2 = c2.get("site_url") or (f"https://anilist.co/anime/{aid2}" if aid2 else "")
+            cover2 = c2.get("cover_image_url") or FALLBACK_COVER_URL
+            score2 = c2.get("score") or c2.get("average_score")
+            year2 = c2.get("year") or c2.get("season_year") or ""
+            fmt2 = c2.get("format") or "TV"
+            genres2 = c2.get("genres") or ""
+
+            st_module.image(cover2, use_container_width=True)
+            meta2 = f"📅 {year2} · 🎞️ {fmt2}" + (f" · ⭐ {score2}/100" if score2 else "")
+            st_module.markdown(
+                f"#### [{title2}]({site_url2})\n<span style='font-size:0.85rem;color:#6c757d'>{meta2}</span>",
+                unsafe_allow_html=True,
+            )
+            if genres2:
+                g_pills2 = " ".join([f"`{g.strip()}`" for g in str(genres2).split(",")[:3] if g.strip()])
+                st_module.markdown(f"🏷️ {g_pills2}")
+
+        st_module.markdown("---")
+
+    # Render the full comparative breakdown
+    st_module.markdown(comparison_markdown)
+

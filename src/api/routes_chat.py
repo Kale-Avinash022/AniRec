@@ -19,10 +19,16 @@ from sse_starlette.sse import EventSourceResponse
 from src.api.routes_rec import get_services
 from src.api.schemas import ChatRequest
 from src.core.logger import logger
-from src.generation.prompts import SYSTEM_CHAT_PROMPT, format_candidate_context, format_user_prompt
+from src.generation.prompts import (
+    SYSTEM_CHAT_PROMPT,
+    SYSTEM_COMPARISON_PROMPT,
+    format_candidate_context,
+    format_user_prompt,
+)
 from src.retrieval.dedup import deduplicate_franchises
 from src.retrieval.query_parser import ExtractedFilters, parse_query_rules
 from src.retrieval.relaxation import search_with_relaxation
+from src.retrieval.search import retrieve_title_candidate
 
 router = APIRouter(tags=["chat"])
 
@@ -51,66 +57,82 @@ async def chat_stream(
     # ── 1. Query Retrieval on Latest User Turn ────────────────────────────────
     parsed = parse_query_rules(payload.message)
 
-    # Apply active sidebar filters if attached to payload
-    active_filters = parsed.filters
-    if payload.active_filters:
-        af = payload.active_filters
-        active_filters = ExtractedFilters(
-            year_min=af.year_min if af.year_min is not None else parsed.filters.year_min,
-            year_max=af.year_max if af.year_max is not None else parsed.filters.year_max,
-            format=af.format or parsed.filters.format,
-            min_score=af.min_score if af.min_score is not None else parsed.filters.min_score,
-            genres=list(set(af.genres + parsed.filters.genres)),
+    # If comparison intent is detected, retrieve only the requested shows
+    if parsed.is_comparison and parsed.comparison_titles:
+        comparison_candidates: list[dict[str, Any]] = []
+        for title in parsed.comparison_titles:
+            c = retrieve_title_candidate(store=store, embedder=embedder, reranker=reranker, title=title)
+            if c and c not in comparison_candidates:
+                comparison_candidates.append(c)
+
+        if len(comparison_candidates) >= 2:
+            top_candidates = comparison_candidates
+        else:
+            top_candidates = comparison_candidates
+    else:
+        top_candidates = []
+
+    if not top_candidates:
+        # Apply active sidebar filters if attached to payload
+        active_filters = parsed.filters
+        if payload.active_filters:
+            af = payload.active_filters
+            active_filters = ExtractedFilters(
+                year_min=af.year_min if af.year_min is not None else parsed.filters.year_min,
+                year_max=af.year_max if af.year_max is not None else parsed.filters.year_max,
+                format=af.format or parsed.filters.format,
+                min_score=af.min_score if af.min_score is not None else parsed.filters.min_score,
+                genres=list(set(af.genres + parsed.filters.genres)),
+            )
+
+        # Dynamic top_k extraction from query or sidebar filters (e.g. "top 13")
+        target_k = payload.active_filters.top_k if (payload.active_filters and payload.active_filters.top_k) else 5
+        import re
+
+        match = re.search(
+            r"\b(?:top|best|recommend|give me|show me)\s*(\d{1,2})\b|\b(\d{1,2})\s*(?:anime|shows|recommendations)\b",
+            payload.message.lower(),
+        )
+        if match:
+            extracted = int(match.group(1) or match.group(2))
+            if 1 <= extracted <= 30:
+                target_k = extracted
+
+        retrieval_k = max(target_k * 8, 80)
+        rerank_k = max(target_k * 5, 50)
+
+        candidates, _ = search_with_relaxation(
+            store=store,
+            embedder=embedder,
+            semantic_text=parsed.semantic_text,
+            initial_filters=active_filters,
+            min_results_needed=min(retrieval_k, 50),
+            top_k=retrieval_k,
         )
 
-    # Dynamic top_k extraction from query or sidebar filters (e.g. "top 13")
-    target_k = payload.active_filters.top_k if (payload.active_filters and payload.active_filters.top_k) else 5
-    import re
+        # Exclude previously recommended shows in this session
+        if payload.active_filters and payload.active_filters.exclude_ids:
+            exclude_set = set(payload.active_filters.exclude_ids)
 
-    match = re.search(
-        r"\b(?:top|best|recommend|give me|show me)\s*(\d{1,2})\b|\b(\d{1,2})\s*(?:anime|shows|recommendations)\b",
-        payload.message.lower(),
-    )
-    if match:
-        extracted = int(match.group(1) or match.group(2))
-        if 1 <= extracted <= 30:
-            target_k = extracted
+            def _get_id(c: dict[str, Any]) -> int:
+                meta = c.get("metadata", {})
+                val = meta.get("anime_id") or meta.get("anilist_id") or c.get("id")
+                if isinstance(val, int):
+                    return val
+                try:
+                    return int(str(val).replace("anilist_", "").strip())
+                except (ValueError, TypeError):
+                    return 0
 
-    retrieval_k = max(target_k * 4, 30)
-    rerank_k = max(target_k * 2, 20)
+            filtered_candidates = [
+                c for c in candidates if _get_id(c) not in exclude_set
+            ]
+            if filtered_candidates:
+                candidates = filtered_candidates
 
-    candidates, _ = search_with_relaxation(
-        store=store,
-        embedder=embedder,
-        semantic_text=parsed.semantic_text,
-        initial_filters=active_filters,
-        min_results_needed=min(retrieval_k, 20),
-        top_k=retrieval_k,
-    )
-
-    # Exclude previously recommended shows in this session
-    if payload.active_filters and payload.active_filters.exclude_ids:
-        exclude_set = set(payload.active_filters.exclude_ids)
-
-        def _get_id(c: dict[str, Any]) -> int:
-            meta = c.get("metadata", {})
-            val = meta.get("anime_id") or meta.get("anilist_id") or c.get("id")
-            if isinstance(val, int):
-                return val
-            try:
-                return int(str(val).replace("anilist_", "").strip())
-            except (ValueError, TypeError):
-                return 0
-
-        filtered_candidates = [
-            c for c in candidates if _get_id(c) not in exclude_set
-        ]
-        if filtered_candidates:
-            candidates = filtered_candidates
-
-    rescored = reranker.rerank(query=payload.message, candidates=candidates, top_k=rerank_k)
-    deduped = deduplicate_franchises(rescored, max_per_franchise=1)
-    top_candidates = deduped[:target_k]
+        rescored = reranker.rerank(query=payload.message, candidates=candidates, top_k=rerank_k)
+        deduped = deduplicate_franchises(rescored, max_per_franchise=1)
+        top_candidates = deduped[:target_k]
 
     # ── 2. Format Prompt with History & Candidates ───────────────────────────
     context_data = [format_candidate_context(c) for c in top_candidates]
@@ -119,11 +141,20 @@ async def chat_stream(
     for msg in payload.history[-6:]:  # keep last 3 turns of history
         history_lines.append(f"{msg.role.capitalize()}: {msg.content}")
 
-    chat_context = (
-        f"Conversation History:\n" + ("\n".join(history_lines) if history_lines else "No previous history.")
-        + f"\n\nCandidate Shows:\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
-        + f"\n\nUser Message: {payload.message}"
-    )
+    if parsed.is_comparison and len(top_candidates) >= 2:
+        system_prompt = SYSTEM_COMPARISON_PROMPT
+        chat_context = (
+            f"Head-to-Head Comparison Candidates:\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
+            f"\n\nUser Comparison Request: {payload.message}\n"
+            f"Please synthesize a comprehensive, structured head-to-head comparison breakdown comparing both shows."
+        )
+    else:
+        system_prompt = SYSTEM_CHAT_PROMPT
+        chat_context = (
+            f"Conversation History:\n" + ("\n".join(history_lines) if history_lines else "No previous history.")
+            + f"\n\nCandidate Shows:\n{json.dumps(context_data, indent=2, ensure_ascii=False)}"
+            + f"\n\nUser Message: {payload.message}"
+        )
 
     # ── 3. SSE Event Generator ───────────────────────────────────────────────
     async def sse_event_generator() -> AsyncIterator[dict[str, str]]:
@@ -137,8 +168,9 @@ async def chat_stream(
         try:
             async for token in llm.generate_stream(
                 prompt=chat_context,
-                system_prompt=SYSTEM_CHAT_PROMPT,
+                system_prompt=system_prompt,
             ):
+
                 if await request.is_disconnected():
                     logger.info(f"Client disconnected from SSE stream [{req_id}]")
                     break

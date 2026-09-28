@@ -9,14 +9,20 @@ Run with:
 from __future__ import annotations
 
 import os
+
 import streamlit as st
 
 from src.core.config import settings
 from src.ui.chat import stream_chat_response
-from src.ui.components import render_provenance_expander, render_recommendation_card
+from src.ui.components import (
+    parse_streamed_suggestions,
+    render_aligned_recommendation_card,
+    render_comparison_view,
+)
 from src.ui.feedback import render_feedback_buttons
 from src.ui.sidebar import render_sidebar_filters
 from src.ui.state import init_session_state
+
 
 # ── Page Configuration ─────────────────────────────────────────────────────
 st.set_page_config(
@@ -47,6 +53,19 @@ st.markdown(
         background: #f8f9fa;
         margin-bottom: 0.5rem;
     }
+    /* Anime poster styling */
+    div[data-testid="stImage"] img {
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        object-fit: cover;
+        width: 100%;
+        max-height: 280px;
+    }
+    div[data-testid="stImage"] img:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -58,7 +77,7 @@ init_session_state(st)
 # ── Render Sidebar ─────────────────────────────────────────────────────────
 active_filters = render_sidebar_filters(st)
 
-# ── Main Header ────────────────────────────────────────────────────────────
+# ── Main Header ────────────────────────────────────────────────────
 st.markdown("<div class='main-header'>🌸 AniRec — Conversational Anime Discovery</div>", unsafe_allow_html=True)
 st.markdown(
     "<div class='sub-header'>Powered by Hybrid Vector Retrieval, Cross-Encoder Reranking & Grounded LLM Generation</div>",
@@ -68,17 +87,57 @@ st.markdown(
 # API Base URL configuration
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://localhost:{settings.PORT}")
 
+
+def _render_assistant_message(msg_content: str, candidates: list[dict]) -> None:
+    """Render an assistant response:
+    - If head-to-head comparison: side-by-side comparison view
+    - If recommendation list (1. Title - reason): aligned recommendation cards with posters
+    - Otherwise: standard markdown
+    """
+    if not candidates:
+        st.markdown(msg_content)
+        return
+
+    # Check for head-to-head comparison
+    msg_lower = msg_content.lower()
+    is_comparison = (
+        len(candidates) == 2
+        and ("head-to-head" in msg_lower or " vs " in msg_lower or "comparison:" in msg_lower or "⚔️" in msg_content)
+    )
+    if is_comparison:
+        render_comparison_view(st, candidates, msg_content)
+        return
+
+    intro_text, descriptions_by_rank = parse_streamed_suggestions(msg_content)
+    if not descriptions_by_rank:
+        st.markdown(msg_content)
+        return
+
+    if intro_text:
+        st.markdown(intro_text)
+
+    for rank, candidate in enumerate(candidates, 1):
+        desc = descriptions_by_rank.get(rank) or candidate.get("why") or candidate.get("synopsis")
+        render_aligned_recommendation_card(
+            st_module=st,
+            rank=rank,
+            show=candidate,
+            description_override=desc,
+        )
+
+
+
 # ── Render Conversation History ────────────────────────────────────────────
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"], avatar="🌸" if msg["role"] == "assistant" else "👤"):
-        st.markdown(msg["content"])
-
-        # If this assistant turn has provenance metadata, render expander & feedback
-        if msg["role"] == "assistant" and idx > 0:
+        if msg["role"] == "user":
+            st.markdown(msg["content"])
+        else:
             turn_key = f"turn_{idx}"
             candidates = st.session_state.provenance_map.get(turn_key, [])
-            if candidates:
-                render_provenance_expander(st, candidates)
+            _render_assistant_message(msg["content"], candidates)
+
+            if idx > 0:
                 user_query = st.session_state.messages[idx - 1]["content"] if idx > 0 else ""
                 render_feedback_buttons(st, turn_id=turn_key, query=user_query, response_text=msg["content"])
 
@@ -112,7 +171,8 @@ if user_input:
                 if candidates and not captured_candidates:
                     captured_candidates = candidates
 
-        response_placeholder.markdown(full_response)
+        response_placeholder.empty()
+        _render_assistant_message(full_response, captured_candidates)
 
     # 3. Store assistant message and provenance in state
     turn_idx = len(st.session_state.messages)

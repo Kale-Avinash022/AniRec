@@ -1,8 +1,10 @@
 """Fault-Tolerant AniList GraphQL Ingestion Client (Step 11).
 
-Provides paginated harvesting, disk caching, rate limiting, and exponential
+Provides paginated harvesting, 2-day persistent caching, rate limiting, and exponential
 backoff retry handling to crawl public anime data from AniList.
 """
+
+from __future__ import annotations
 
 import asyncio
 from pathlib import Path
@@ -12,6 +14,7 @@ import httpx
 
 from src.core.config import settings
 from src.core.logger import logger
+from src.ingest.cache import AniListCache, get_anilist_cache
 from src.ingest.queries import (
     ANILIST_GRAPHQL_URL,
     ANILIST_MEDIA_PAGE_QUERY,
@@ -22,21 +25,16 @@ from src.ingest.storage import load_page_snapshot, save_page_snapshot
 
 
 class AniListClient:
-    """Async GraphQL client for scraping and caching anime records from AniList."""
+    """Async GraphQL client for scraping, caching, and serving anime records from AniList."""
 
     def __init__(
         self,
         api_url: str | None = None,
         rate_limiter: AsyncRateLimiter | None = None,
         data_dir: Path | None = None,
+        cache: AniListCache | None = None,
     ) -> None:
-        """Initialize the client.
-
-        Args:
-            api_url: GraphQL endpoint URL (defaults to configured settings).
-            rate_limiter: Rate limiter instance; defaults to new AsyncRateLimiter.
-            data_dir: Directory where raw snapshot files are saved.
-        """
+        """Initialize the client."""
         self.url = (
             api_url
             if api_url is not None
@@ -46,6 +44,15 @@ class AniListClient:
             rate_limiter if rate_limiter is not None else AsyncRateLimiter()
         )
         self.data_dir = data_dir if data_dir is not None else settings.RAW_DATA_DIR
+        self.cache = (
+            cache
+            if cache is not None
+            else (
+                AniListCache(cache_dir=self.data_dir / "cache")
+                if data_dir is not None
+                else get_anilist_cache()
+            )
+        )
 
     async def fetch_page(
         self,
@@ -55,26 +62,21 @@ class AniListClient:
         use_cache: bool = True,
         client: httpx.AsyncClient | None = None,
     ) -> dict[str, Any]:
-        """Fetch a single page of anime records, checking disk cache first.
+        """Fetch a single page of anime records with 2-day TTL cache and outage fallback."""
+        cache_key = f"page_{page:03d}"
 
-        Args:
-            page: 1-indexed page number.
-            per_page: Number of items per page (maximum 50).
-            max_retries: Number of retry attempts on 429, 5xx, or network failure.
-            use_cache: Whether to return and write to disk snapshots.
-            client: Optional externally-managed httpx.AsyncClient instance.
-
-        Returns:
-            Dictionary containing the raw AniList GraphQL response.
-
-        Raises:
-            RuntimeError: If all retry attempts are exhausted without success.
-        """
         if use_cache:
-            cached = load_page_snapshot(page, data_dir=self.data_dir)
-            if cached is not None:
-                logger.debug(f"Loaded page {page} from disk snapshot cache.")
-                return cached
+            # Check raw disk snapshot in specified data_dir first
+            raw_snapshot = load_page_snapshot(page, data_dir=self.data_dir)
+            if raw_snapshot is not None:
+                logger.debug(f"Loaded page {page} from disk snapshot.")
+                return raw_snapshot
+
+            # Check 2-day persistent cache
+            cached_page = self.cache.get(cache_key, allow_stale_on_outage=False)
+            if cached_page is not None:
+                logger.debug(f"Loaded page {page} from 2-day persistent cache.")
+                return cached_page
 
         variables = build_page_variables(page=page, per_page=per_page)
         headers = {
@@ -86,7 +88,6 @@ class AniListClient:
             "variables": variables,
         }
 
-        # Use passed client or manage a local client
         owns_client = client is None
 
         for attempt in range(1, max_retries + 1):
@@ -103,15 +104,14 @@ class AniListClient:
                     data: dict[str, Any] = resp.json()
                     if use_cache:
                         save_page_snapshot(page, data, data_dir=self.data_dir)
+                        self.cache.set(cache_key, data)
                     logger.info(
-                        f"Successfully fetched page {page} (attempt {attempt})."
+                        f"Successfully fetched page {page} from AniList (attempt {attempt})."
                     )
                     return data
 
                 if resp.status_code == 429:
-                    retry_header = resp.headers.get("retry-after") or resp.headers.get(
-                        "Retry-After"
-                    )
+                    retry_header = resp.headers.get("retry-after") or resp.headers.get("Retry-After")
                     delay = (
                         int(retry_header)
                         if retry_header and retry_header.isdigit()
@@ -139,6 +139,17 @@ class AniListClient:
                     f"Network error on page {page} (attempt {attempt}/{max_retries}): {exc}"
                 )
                 if attempt == max_retries:
+                    if use_cache:
+                        fallback_cached = self.cache.get(cache_key, allow_stale_on_outage=True)
+                        if fallback_cached is not None:
+                            logger.warning(f"AniList unreachable; serving fallback cached data for page {page}.")
+                            return fallback_cached
+
+                        raw_fallback = load_page_snapshot(page, data_dir=self.data_dir)
+                        if raw_fallback is not None:
+                            logger.warning(f"AniList unreachable; serving raw disk snapshot for page {page}.")
+                            return raw_fallback
+
                     raise RuntimeError(
                         f"Failed to fetch page {page} after {max_retries} attempts."
                     ) from exc
@@ -146,6 +157,12 @@ class AniListClient:
             finally:
                 if owns_client:
                     await http_client.aclose()
+
+        if use_cache:
+            fallback_data = self.cache.get(cache_key, allow_stale_on_outage=True) or load_page_snapshot(page, data_dir=self.data_dir)
+            if fallback_data is not None:
+                logger.warning(f"AniList unavailable; returned cached fallback for page {page}.")
+                return fallback_data
 
         raise RuntimeError(f"Failed to fetch page {page} after {max_retries} attempts.")
 
@@ -155,26 +172,21 @@ class AniListClient:
         per_page: int = 50,
         use_cache: bool = True,
     ) -> list[dict[str, Any]]:
-        """Paginate through AniList catalog and collect all anime media entries.
-
-        Args:
-            max_pages: Maximum pages to crawl (e.g. 60 pages * 50 = 3,000 anime).
-            per_page: Number of shows per page.
-            use_cache: Whether to use disk snapshot cache.
-
-        Returns:
-            List of all extracted media dictionaries.
-        """
+        """Paginate through AniList catalog and collect all anime media entries."""
         all_shows: list[dict[str, Any]] = []
 
         async with httpx.AsyncClient(timeout=25.0) as client:
             for page in range(1, max_pages + 1):
-                page_data = await self.fetch_page(
-                    page=page,
-                    per_page=per_page,
-                    use_cache=use_cache,
-                    client=client,
-                )
+                try:
+                    page_data = await self.fetch_page(
+                        page=page,
+                        per_page=per_page,
+                        use_cache=use_cache,
+                        client=client,
+                    )
+                except Exception as exc:
+                    logger.warning(f"Skipping unreachable page {page} during catalog ingestion: {exc}")
+                    continue
 
                 page_block = page_data.get("data", {}).get("Page", {})
                 media_list = page_block.get("media", [])

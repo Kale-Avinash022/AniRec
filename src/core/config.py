@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     RAW_DATA_DIR: Path = DATA_DIR / "raw"
     PROCESSED_DATA_DIR: Path = DATA_DIR / "processed"
     CHROMA_PERSIST_DIR: Path = DATA_DIR / "chroma"
+    CACHE_DIR: Path = DATA_DIR / "cache"
     LOGS_DIR: Path = BASE_DIR / "logs"
 
     # AI / Model Provider Settings
@@ -44,6 +45,7 @@ class Settings(BaseSettings):
     ANILIST_MAX_PAGES: int = 60  # 60 pages * 50 per page = 3,000 shows
     ANILIST_PER_PAGE: int = 50
     ANILIST_RATE_LIMIT_DELAY_SECONDS: float = 0.8
+    ANILIST_CACHE_TTL_SECONDS: int = 172800  # 2 days (48 hours) persistent caching
 
     # Retrieval Settings
     TOP_K_RETRIEVAL: int = 20
@@ -63,6 +65,7 @@ class Settings(BaseSettings):
             self.RAW_DATA_DIR,
             self.PROCESSED_DATA_DIR,
             self.CHROMA_PERSIST_DIR,
+            self.CACHE_DIR,
             self.LOGS_DIR,
         ]:
             path.mkdir(parents=True, exist_ok=True)

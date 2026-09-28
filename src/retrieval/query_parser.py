@@ -56,6 +56,10 @@ class ParsedQuery(BaseModel):
     raw_query: str
     semantic_text: str       # cleaned text sent to the embedding model
     filters: ExtractedFilters
+    is_comparison: bool = False
+    comparison_titles: list[str] = Field(default_factory=list)
+    intent: str = "recommendation"  # "recommendation" | "comparison" | "qa"
+
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +123,78 @@ _RE_SCORE = re.compile(
 _RE_EPISODES = re.compile(r"\b(\d+)\s+ep(?:isodes?)?\b", re.IGNORECASE)
 
 
+# Comparison regex patterns
+_RE_COMPARE_PREFIX = re.compile(
+    r"^(?:please\s+)?(?:can\s+you\s+)?(?:compare|give\s+a\s+comparison\s+(?:of|between)|difference\s+between|differences\s+between)\s+",
+    re.IGNORECASE,
+)
+_RE_COMPARE_VS = re.compile(
+    r"['\"`]?([^'\"`]+?)['\"`]?\s+(?:\bvs\.?\b|\bversus\b|\bcompared\s+to\b)\s+['\"`]?([^'\"`]+?)['\"`]?$",
+    re.IGNORECASE,
+)
+_RE_COMPARE_AND = re.compile(
+    r"['\"`]?([^'\"`]+?)['\"`]?\s+(?:\band\b|\bwith\b)\s+['\"`]?([^'\"`]+?)['\"`]?$",
+    re.IGNORECASE,
+)
+_RE_WHICH_BETTER = re.compile(
+    r"['\"`]?([^'\"`]+?)['\"`]?\s+(?:\bor\b)\s+['\"`]?([^'\"`]+?)['\"`]?\s*[,?]?\s*(?:which|what)\s+(?:is|one|should|better|to watch)\b",
+    re.IGNORECASE,
+)
+_RE_IS_BETTER = re.compile(
+    r"^(?:is\s+)?['\"`]?([^'\"`]+?)['\"`]?\s+(?:better\s+than|similar\s+to|different\s+from)\s+['\"`]?([^'\"`]+?)['\"`]?$",
+    re.IGNORECASE,
+)
+
+
+def _clean_title(t: str) -> str:
+    """Clean extracted anime title candidate."""
+    t = re.sub(r"^(?:the\s+anime|the\s+show|anime)\s+", "", t.strip(), flags=re.IGNORECASE)
+    t = re.sub(r"\s+(?:the\s+anime|the\s+show|anime)$", "", t.strip(), flags=re.IGNORECASE)
+    return t.strip().strip("'\"`?.!,:;")
+
+
+def extract_comparison_intent(query: str) -> tuple[bool, list[str]]:
+    """Detect if query is a head-to-head anime comparison and extract target titles.
+
+    Returns:
+        (is_comparison, [title1, title2])
+    """
+    clean_q = query.strip().rstrip("?.!")
+
+    # 1. "compare X and Y" / "difference between X and Y"
+    m_prefix = _RE_COMPARE_PREFIX.match(clean_q)
+    if m_prefix:
+        rest = clean_q[m_prefix.end():].strip()
+        m_and = _RE_COMPARE_AND.search(rest) or _RE_COMPARE_VS.search(rest)
+        if m_and:
+            t1, t2 = _clean_title(m_and.group(1)), _clean_title(m_and.group(2))
+            if len(t1) >= 2 and len(t2) >= 2:
+                return True, [t1, t2]
+
+    # 2. Direct "vs" / "versus" pattern (e.g. "Eden Zero vs Fairy Tail", "Death Note versus Code Geass")
+    m = _RE_COMPARE_VS.search(clean_q)
+    if m:
+        t1, t2 = _clean_title(m.group(1)), _clean_title(m.group(2))
+        if len(t1) >= 2 and len(t2) >= 2:
+            return True, [t1, t2]
+
+    # 3. "X or Y, which is better?"
+    m_or = _RE_WHICH_BETTER.search(clean_q)
+    if m_or:
+        t1, t2 = _clean_title(m_or.group(1)), _clean_title(m_or.group(2))
+        if len(t1) >= 2 and len(t2) >= 2:
+            return True, [t1, t2]
+
+    # 4. "is X better than Y"
+    m_better = _RE_IS_BETTER.search(clean_q)
+    if m_better:
+        t1, t2 = _clean_title(m_better.group(1)), _clean_title(m_better.group(2))
+        if len(t1) >= 2 and len(t2) >= 2:
+            return True, [t1, t2]
+
+    return False, []
+
+
 # ---------------------------------------------------------------------------
 # Main parser
 # ---------------------------------------------------------------------------
@@ -131,8 +207,11 @@ def parse_query_rules(query: str) -> ParsedQuery:
         query: Raw user input string.
 
     Returns:
-        :class:`ParsedQuery` with ``semantic_text`` and ``filters``.
+        :class:`ParsedQuery` with ``semantic_text``, ``filters``, and comparison intent.
     """
+    is_comp, comp_titles = extract_comparison_intent(query)
+    intent = "comparison" if is_comp else "recommendation"
+
     text = query  # working copy that we'll strip tokens from
     filters = ExtractedFilters()
 
@@ -200,4 +279,12 @@ def parse_query_rules(query: str) -> ParsedQuery:
     if not semantic_text:
         semantic_text = query  # full fallback — never send empty string to embedder
 
-    return ParsedQuery(raw_query=query, semantic_text=semantic_text, filters=filters)
+    return ParsedQuery(
+        raw_query=query,
+        semantic_text=semantic_text,
+        filters=filters,
+        is_comparison=is_comp,
+        comparison_titles=comp_titles,
+        intent=intent,
+    )
+

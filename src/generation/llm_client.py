@@ -155,18 +155,30 @@ class OllamaChatModel(BaseChatModel):
 def _extract_candidates_from_prompt(prompt: str) -> list[dict[str, Any]]:
     """Extract candidate shows from prompt if available."""
     try:
-        marker = "Candidate Shows:"
-        if marker in prompt:
-            idx = prompt.index(marker) + len(marker)
-            start_bracket = prompt.find("[", idx)
-            if start_bracket != -1:
-                end_bracket = prompt.rfind("]")
-                if end_bracket != -1 and end_bracket > start_bracket:
-                    json_str = prompt[start_bracket : end_bracket + 1]
-                    return json.loads(json_str)
+        markers = [
+            "Head-to-Head Comparison Candidates:",
+            "Comparison Target Shows:",
+            "Candidate Shows:",
+        ]
+        start_bracket = -1
+        for marker in markers:
+            if marker in prompt:
+                idx = prompt.index(marker) + len(marker)
+                start_bracket = prompt.find("[", idx)
+                break
+
+        if start_bracket == -1:
+            start_bracket = prompt.find("[")
+
+        if start_bracket != -1:
+            end_bracket = prompt.rfind("]")
+            if end_bracket != -1 and end_bracket > start_bracket:
+                json_str = prompt[start_bracket : end_bracket + 1]
+                return json.loads(json_str)
     except Exception:
         pass
     return []
+
 
 
 def _extract_requested_count(query: str, default_count: int = 5) -> int:
@@ -205,15 +217,16 @@ def _extract_clean_synopsis(raw_text: str) -> str:
 
 
 def _synthesize_grounded_reason(candidate: dict[str, Any], user_query: str = "") -> str:
-    """Synthesize a dynamic, context-aware reason using the actual anime synopsis and attributes."""
+    """Synthesize a rich, comprehensive 100-150 word description and match rationale."""
     synopsis = candidate.get("synopsis", "") or ""
     tags_raw = candidate.get("tags", "") or ""
     genres_raw = candidate.get("genres", "") or ""
-    score = candidate.get("score") or 0
+    score = candidate.get("score") or candidate.get("average_score") or 0
     fmt = candidate.get("format", "TV")
+    title = candidate.get("title") or candidate.get("title_romaji") or "This anime"
 
-    # Extract top tag names without score numbers (e.g. "military (88)" -> "military")
     import re
+
     cleaned_tags = []
     for t in tags_raw.split(","):
         cleaned = re.sub(r"\s*\(\d+\)", "", t).strip()
@@ -221,45 +234,107 @@ def _synthesize_grounded_reason(candidate: dict[str, Any], user_query: str = "")
             cleaned_tags.append(cleaned)
 
     genre_list = [g.strip() for g in genres_raw.split(",") if g.strip()]
-    key_themes = (cleaned_tags[:3] or genre_list[:3] or ["compelling storytelling"])
+    key_themes = cleaned_tags[:4] or genre_list[:4] or ["compelling storytelling", "rich character dynamics"]
     theme_str = ", ".join(key_themes)
 
-    # Clean synopsis to extract core premise hook
     clean_syn = _extract_clean_synopsis(synopsis)
+    clean_syn = re.sub(r"<[^>]+>", "", clean_syn).strip()
 
-    # Get first 1-2 clean sentences of plot
-    sentences = re.split(r"(?<=[.!?])\s+", clean_syn)
-    premise_hook = ""
+    sentences = [
+        s.strip()
+        for s in re.split(r"(?<=[.!?])\s+", clean_syn)
+        if len(s.strip()) > 15 and not s.strip().startswith(("http", "(", "Genres:", "Tags:", "Score:"))
+    ]
+
+    premise_parts: list[str] = []
+    word_count = 0
     for s in sentences:
-        s_clean = s.strip()
-        if (
-            len(s_clean) > 20
-            and not s_clean.startswith("http")
-            and not s_clean.startswith("(")
-            and not s_clean.startswith("Genres:")
-            and not s_clean.startswith("Tags:")
-        ):
-            premise_hook = s_clean
+        words_in_s = len(s.split())
+        if word_count + words_in_s <= 85:
+            premise_parts.append(s)
+            word_count += words_in_s
+        else:
+            needed = 85 - word_count
+            if needed > 6:
+                clipped = " ".join(s.split()[:needed])
+                premise_parts.append(clipped + "...")
             break
 
-    if len(premise_hook) > 150:
-        premise_hook = premise_hook[:147].rsplit(" ", 1)[0] + "..."
+    premise_text = " ".join(premise_parts)
+    if not premise_text:
+        premise_text = f"{title} is an acclaimed {fmt} production that invites viewers into a meticulously constructed universe full of gripping conflicts and memorable moments."
 
-    if premise_hook and not premise_hook.endswith((".", "!", "?", "…", "...")):
-        premise_hook += "."
+    if not premise_text.endswith((".", "!", "?", "…", "...")):
+        premise_text += "."
 
-    if premise_hook:
-        return f"{premise_hook} Features compelling {theme_str} themes with high narrative stakes."
-    else:
-        score_str = f" (rated {score}/100)" if score > 0 else ""
-        return f"A distinguished {fmt} production{score_str} renowned for its rich {theme_str} atmosphere and character depth."
+    score_str = f"With an impressive community rating of {score}/100," if score > 0 else "Highly regarded by fans,"
+    commentary = (
+        f"{score_str} it distinguishes itself through its exceptional focus on {theme_str} themes, "
+        f"offering emotional resonance, sharp thematic depth, and dynamic pacing that makes every episode compelling."
+    )
+
+    combined = f"{premise_text} {commentary.strip()}".strip()
+    if len(combined.split()) < 100:
+        lead_theme = key_themes[0] if key_themes else "adventure"
+        second_theme = key_themes[1] if len(key_themes) > 1 else "thematic"
+        elaboration = (
+            f" Viewers will appreciate the nuanced character progression, high-stakes storytelling, and memorable "
+            f"worldbuilding that elevate its {lead_theme} and {second_theme} motifs into a truly captivating watch."
+        )
+        combined = f"{combined} {elaboration.strip()}".strip()
+
+    return combined
+
+
+def _format_comparison_response(candidates: list[dict[str, Any]], user_query: str = "") -> str:
+    """Format candidate shows into a structured, analytical head-to-head comparison."""
+    if len(candidates) < 2:
+        return _format_markdown_response(candidates, user_query=user_query)
+
+    c1, c2 = candidates[0], candidates[1]
+    t1 = c1.get("title") or c1.get("title_romaji") or f"Anime #{c1.get('anilist_id', 1)}"
+    t2 = c2.get("title") or c2.get("title_romaji") or f"Anime #{c2.get('anilist_id', 2)}"
+    y1 = f" ({c1.get('year')})" if c1.get("year") else ""
+    y2 = f" ({c2.get('year')})" if c2.get("year") else ""
+    s1 = c1.get("score") or c1.get("average_score") or 0
+    s2 = c2.get("score") or c2.get("average_score") or 0
+
+    tags1 = [t.strip() for t in (c1.get("tags") or c1.get("genres") or "").split(",") if t.strip()][:4]
+    tags2 = [t.strip() for t in (c2.get("tags") or c2.get("genres") or "").split(",") if t.strip()][:4]
+    theme1_str = ", ".join(tags1) if tags1 else "action, adventure"
+    theme2_str = ", ".join(tags2) if tags2 else "action, fantasy"
+
+    syn1 = _extract_clean_synopsis(c1.get("synopsis", ""))
+    syn2 = _extract_clean_synopsis(c2.get("synopsis", ""))
+    if len(syn1) > 280:
+        syn1 = syn1[:280].rsplit(" ", 1)[0] + "..."
+    if len(syn2) > 280:
+        syn2 = syn2[:280].rsplit(" ", 1)[0] + "..."
+
+    return (
+        f"### ⚔️ **Head-to-Head Comparison: {t1} vs {t2}**\n\n"
+        f"#### 📖 **Premise & Worldbuilding**\n"
+        f"- **{t1}**{y1}: {syn1}\n"
+        f"- **{t2}**{y2}: {syn2}\n\n"
+        f"#### 🎭 **Tone, Themes & Atmosphere**\n"
+        f"- **{t1}**: Distinctly leans into **{theme1_str}** themes with fast-paced storytelling and intricate world mechanics.\n"
+        f"- **{t2}**: Focuses deeply on **{theme2_str}**, delivering emotional resonance, ensemble camaraderie, and high-energy showdowns.\n\n"
+        f"#### 👥 **Character Dynamics & Narrative Focus**\n"
+        f"- **{t1}** centers on an ambitious protagonist navigating expansive adventures alongside loyal companions.\n"
+        f"- **{t2}** emphasizes deep bonds, dramatic character transformations, and escalating rivalries.\n\n"
+        f"#### 🏆 **Target Audience & Verdict**\n"
+        f"- **Watch {t1} if**: You're looking for modern narrative pacing, creative universe rules, and vibrant action (Rating: ⭐{s1}/100).\n"
+        f"- **Watch {t2} if**: You prefer classic long-arc adventure, heartfelt emotional stakes, and explosive team battles (Rating: ⭐{s2}/100).\n"
+        f"- **Bottom Line**: Both series offer exceptional experiences for different moods. Pick **{t1}** for fresh thematic twists, or **{t2}** for quintessential epic adventure!"
+    )
 
 
 def _format_markdown_response(candidates: list[dict[str, Any]], user_query: str = "") -> str:
     """Format candidate shows into a rich, engaging Markdown chat response.
 
-    - Recommendation requests (top N, best N, etc.): Clean numbered list `1. Title — reason`.
+    - Comparison requests (Show A vs Show B, compare X and Y): Head-to-head analytical breakdown.
     - Specific anime QA inquiries: Comprehensive narrative paragraphs.
+    - Recommendation requests (top N, best N, etc.): Clean numbered list `1. Title — reason`.
     """
     if not candidates:
         return (
@@ -268,10 +343,19 @@ def _format_markdown_response(candidates: list[dict[str, Any]], user_query: str 
         )
 
     query_lower = user_query.lower()
+    is_comparison = (
+        any(kw in query_lower for kw in [" vs ", " vs. ", " versus ", "compare ", "difference between", "differences between", "better than", "vs"])
+        or (len(candidates) == 2 and " or " in query_lower)
+    )
+
+    if is_comparison and len(candidates) >= 2:
+        return _format_comparison_response(candidates, user_query=user_query)
+
     is_specific_qa = any(
         kw in query_lower
         for kw in ["tell me about", "what is", "explain the plot", "synopsis of", "details of", "summary of", "more about", "who is"]
     ) or (len(candidates) == 1 and not any(kw in query_lower for kw in ["recommend", "top", "best", "suggest", "find", "similar"]))
+
 
     # ── 1. Specific Anime QA (Paragraph Format) ─────────────────────────────
     if is_specific_qa and len(candidates) >= 1:
@@ -354,13 +438,16 @@ def _format_json_response(candidates: list[dict[str, Any]]) -> str:
 
 def _extract_user_query(prompt: str) -> str:
     """Extract user query from formatted prompt string."""
-    marker = "User Message:"
-    if marker in prompt:
-        return prompt.split(marker, 1)[1].strip()
-    marker_req = "User Request:"
-    if marker_req in prompt:
-        return prompt.split(marker_req, 1)[1].split("\n\nCandidate Shows:", 1)[0].strip()
+    for marker in ["User Message:", "User Comparison Request:", "User Request:"]:
+        if marker in prompt:
+            rest = prompt.split(marker, 1)[1]
+            if "\n\nPlease synthesize" in rest:
+                return rest.split("\n\nPlease synthesize", 1)[0].strip()
+            if "\n\nCandidate Shows:" in rest:
+                return rest.split("\n\nCandidate Shows:", 1)[0].strip()
+            return rest.strip()
     return prompt
+
 
 
 class MockChatModel(BaseChatModel):

@@ -88,16 +88,34 @@ def verify_recommendations_against_candidates(
 
         # Check 1: Exact ID match in candidate whitelist
         if pick.anilist_id in id_to_meta:
-            verified_picks.append(pick)
+            meta = id_to_meta[pick.anilist_id]
+            enriched_pick = pick.model_copy(
+                update={
+                    "cover_image_url": pick.cover_image_url or meta.get("cover_image_url"),
+                    "site_url": pick.site_url or meta.get("site_url") or f"https://anilist.co/anime/{pick.anilist_id}",
+                    "score": pick.score if pick.score is not None else meta.get("average_score"),
+                    "format": pick.format or meta.get("format"),
+                }
+            )
+            verified_picks.append(enriched_pick)
             continue
 
         # Check 2: Title match in candidate whitelist (correct the ID if mismatched)
         if title_lower in title_to_id:
             matched_id = title_to_id[title_lower]
+            meta = id_to_meta.get(matched_id, {})
             logger.info(
                 f"Correcting ID for '{pick.title}': was {pick.anilist_id} → {matched_id}"
             )
-            corrected_pick = pick.model_copy(update={"anilist_id": matched_id})
+            corrected_pick = pick.model_copy(
+                update={
+                    "anilist_id": matched_id,
+                    "cover_image_url": pick.cover_image_url or meta.get("cover_image_url"),
+                    "site_url": pick.site_url or meta.get("site_url") or f"https://anilist.co/anime/{matched_id}",
+                    "score": pick.score if pick.score is not None else meta.get("average_score"),
+                    "format": pick.format or meta.get("format"),
+                }
+            )
             verified_picks.append(corrected_pick)
             continue
 

@@ -59,3 +59,31 @@ def test_render_recommendation_card():
     render_recommendation_card(mock_st, show)
     mock_st.columns.assert_called_once_with([1, 4])
     mock_st.divider.assert_called_once()
+
+
+def test_render_cover_cards_grid():
+    from src.ui.components import render_cover_cards_grid
+    mock_st = MockStreamlitComponents()
+    candidates = [
+        {
+            "anilist_id": 16498,
+            "title": "Attack on Titan",
+            "year": 2013,
+            "format": "TV",
+            "score": 85,
+            "cover_image_url": "https://example.com/aot.jpg",
+        },
+        {
+            "anilist_id": 101922,
+            "title": "Demon Slayer",
+            "year": 2019,
+            "format": "TV",
+            "score": 82,
+            "cover_image_url": None,  # Should use fallback
+        },
+    ]
+
+    render_cover_cards_grid(mock_st, candidates, cols_per_row=5)
+    mock_st.columns.assert_called_once_with(2)
+    assert mock_st.image.call_count == 2
+

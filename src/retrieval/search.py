@@ -167,3 +167,59 @@ def search_candidates(
         f"filter={chroma_where}"
     )
     return candidates
+
+
+def retrieve_title_candidate(
+    store: AnimeVectorStore,
+    embedder: BaseEmbedder,
+    reranker: Any,
+    title: str,
+) -> dict[str, Any] | None:
+    """Retrieve the single most relevant candidate anime matching a specific title.
+
+    Args:
+        store: :class:`AnimeVectorStore` instance.
+        embedder: :class:`BaseEmbedder` instance.
+        reranker: :class:`Reranker` instance.
+        title: Show title string (e.g. "Eden Zero", "Fairy Tail").
+
+    Returns:
+        Top matching candidate dict or None.
+    """
+    candidates = search_candidates(
+        store=store,
+        embedder=embedder,
+        semantic_text=title,
+        filters=ExtractedFilters(),
+        top_k=12,
+    )
+    if not candidates:
+        return None
+
+    title_lower = title.lower().strip()
+    # Check exact title match first
+    for c in candidates:
+        meta = c.get("metadata", {})
+        eng = (meta.get("title_english") or "").lower()
+        rom = (meta.get("title_romaji") or "").lower()
+        if (eng and eng == title_lower) or (rom and rom == title_lower):
+            return c
+
+    # Check substring containment
+    for c in candidates:
+        meta = c.get("metadata", {})
+        eng = (meta.get("title_english") or "").lower()
+        rom = (meta.get("title_romaji") or "").lower()
+        if (eng and title_lower in eng) or (rom and title_lower in rom):
+            return c
+
+    # Fallback to cross-encoder reranking
+    try:
+        rescored = reranker.rerank(query=title, candidates=candidates, top_k=3)
+        if rescored:
+            return rescored[0]
+    except Exception as exc:
+        logger.warning(f"Reranking error during title candidate lookup for '{title}': {exc}")
+
+    return candidates[0]
+

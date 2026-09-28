@@ -60,10 +60,9 @@ def build_deterministic_fallback(
         elif genres:
             matched.extend([g.strip() for g in genres.split(",")[:3] if g.strip()])
 
-        why = (
-            f"{title} ({year or 'Classic'}) matches your search with notable themes "
-            f"including {', '.join(matched) if matched else 'compelling storytelling'}."
-        )
+        from src.generation.llm_client import _synthesize_grounded_reason
+
+        why = _synthesize_grounded_reason(ctx, user_query=user_query)
 
         recommendations.append(
             RecommendedShow(
@@ -72,6 +71,10 @@ def build_deterministic_fallback(
                 year=year if year else None,
                 why=why,
                 matched_attributes=matched,
+                cover_image_url=ctx.get("cover_image_url") or None,
+                site_url=ctx.get("site_url") or f"https://anilist.co/anime/{ctx['anilist_id']}",
+                score=ctx.get("score"),
+                format=ctx.get("format"),
             )
         )
 
